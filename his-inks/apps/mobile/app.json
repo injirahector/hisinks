@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "His Inks Studio",
+    "slug": "his-inks-studio",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0B0B"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.hisinks.studio"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0B0B"
+      },
+      "package": "com.hisinks.studio"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "his-inks",
+  "version": "1.0.0",
+  "description": "His Inks Studio - Tattoo Studio Management Platform",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "apps/mobile",
+    "packages/ui",
+    "packages/utils"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run web\"",
+    "web": "npm run dev --workspace=apps/web",
+    "mobile": "npm run start --workspace=apps/mobile",
+    "server": "npm run dev --workspace=server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5"
+  }
+}

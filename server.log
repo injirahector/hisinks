@@ -1,0 +1,6 @@
+✅  MongoDB connected successfully
+    Host     : localhost:27017
+    Database : his-inks
+📅  Availability schedule already exists — skipping seed.
+✅  His Inks API is running on http://localhost:5000
+🔍  Health check: http://localhost:5000/api/health

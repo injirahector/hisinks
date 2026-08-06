@@ -1,0 +1,15 @@
+{
+  "name": "@his-inks/ui",
+  "version": "1.0.0",
+  "description": "Shared UI components for His Inks Studio",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}

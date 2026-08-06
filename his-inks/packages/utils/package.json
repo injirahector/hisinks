@@ -1,0 +1,13 @@
+{
+  "name": "@his-inks/utils",
+  "version": "1.0.0",
+  "description": "Shared utility functions for His Inks Studio",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}

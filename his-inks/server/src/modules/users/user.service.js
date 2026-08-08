@@ -22,10 +22,36 @@ async function getUserById(userId) {
   return user.toSafeObject();
 }
 
-// ── Get all users (admin) ─────────────────────────────────────────────────────
-async function getAllUsers() {
-  const users = await User.find().sort({ createdAt: -1 });
-  return users.map((u) => u.toSafeObject());
+// ── Get all customers (admin) ─────────────────────────────────────────────────
+async function getAllUsers({ search = '', page = 1, limit = 20 } = {}) {
+  const filter = { role: 'customer' };
+
+  if (search) {
+    const re = new RegExp(search.trim(), 'i');
+    filter.$or = [
+      { firstName: re },
+      { lastName:  re },
+      { email:     re },
+      { phone:     re },
+    ];
+  }
+
+  const skip = (page - 1) * limit;
+
+  const [users, total] = await Promise.all([
+    User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    User.countDocuments(filter),
+  ]);
+
+  return {
+    users: users.map((u) => u.toSafeObject()),
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 }
 
 // ── Update own profile ────────────────────────────────────────────────────────

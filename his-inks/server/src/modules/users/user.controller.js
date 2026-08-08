@@ -30,8 +30,18 @@ async function updateMe(req, res, next) {
 // ── GET /api/users  (admin only) ──────────────────────────────────────────────
 async function getAllUsers(req, res, next) {
   try {
-    const users = await userService.getAllUsers();
-    return res.status(200).json({ success: true, count: users.length, data: { users } });
+    const { search = '', page, limit } = req.query;
+    const result = await userService.getAllUsers({
+      search,
+      page:  page  ? parseInt(page,  10) : 1,
+      limit: limit ? parseInt(limit, 10) : 20,
+    });
+    return res.status(200).json({
+      success: true,
+      count: result.users.length,
+      pagination: result.pagination,
+      data: { users: result.users },
+    });
   } catch (err) {
     next(err);
   }

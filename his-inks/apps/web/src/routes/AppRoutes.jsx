@@ -22,6 +22,7 @@ import ConsultationsManagement from '../pages/admin/ConsultationsManagement';
 import ReviewsManagement from '../pages/admin/ReviewsManagement';
 import MessagesManagement from '../pages/admin/MessagesManagement';
 import ReportsAnalytics from '../pages/admin/ReportsAnalytics';
+import CustomersManagement from '../pages/admin/CustomersManagement';
 
 function AppRoutes() {
   return (
@@ -53,6 +54,7 @@ function AppRoutes() {
           <Route path="/admin/reviews"            element={<ReviewsManagement />} />
           <Route path="/admin/messages"           element={<MessagesManagement />} />
           <Route path="/admin/reports"            element={<ReportsAnalytics />} />
+          <Route path="/admin/customers"          element={<CustomersManagement />} />
           <Route path="/admin/*"                  element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>

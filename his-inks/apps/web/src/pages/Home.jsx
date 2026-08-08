@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { getImageUrl } from '../utils/imageUrl';
 
 const STARS = [1, 2, 3, 4, 5];
 
@@ -446,7 +447,7 @@ function Home() {
                   className="group relative aspect-square overflow-hidden bg-white/5 text-left"
                 >
                   <img
-                    src={t.image}
+                    src={getImageUrl(t.image)}
                     alt={t.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
@@ -488,7 +489,7 @@ function Home() {
                 Close ✕
               </button>
               <img
-                src={selected.image}
+                src={getImageUrl(selected.image)}
                 alt={selected.title}
                 className="w-full max-h-[70vh] object-contain bg-black"
               />

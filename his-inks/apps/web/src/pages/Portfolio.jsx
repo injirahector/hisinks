@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { getImageUrl } from '../utils/imageUrl';
 
 const CATEGORIES = [
   'All',
@@ -105,7 +106,7 @@ function Portfolio() {
                 className="group relative aspect-square overflow-hidden bg-white/5 text-left"
               >
                 <img
-                  src={t.image}
+                  src={getImageUrl(t.image)}
                   alt={t.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
@@ -149,7 +150,7 @@ function Portfolio() {
               Close ✕
             </button>
             <img
-              src={selected.image}
+              src={getImageUrl(selected.image)}
               alt={selected.title}
               className="w-full max-h-[70vh] object-contain bg-black"
             />

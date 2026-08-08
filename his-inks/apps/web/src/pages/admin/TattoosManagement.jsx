@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../../services/api';
+import { getImageUrl } from '../../utils/imageUrl';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -82,7 +83,7 @@ function TattooForm({ title, initial, onSave, onCancel }) {
       try {
         const fd = new FormData();
         fd.append('image', imageFile);
-        const res = await api.post('/uploads/image', fd, {
+        const res = await api.post('/uploads/tattoo-image', fd, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         imageUrl = res.data.data.url;
@@ -119,7 +120,7 @@ function TattooForm({ title, initial, onSave, onCancel }) {
               Tattoo Image <span className="text-brand-accent">*</span>
             </label>
             {preview && (
-              <img src={preview} alt="preview" className="w-full h-48 object-cover mb-3 bg-white/5" />
+              <img src={getImageUrl(preview)} alt="preview" className="w-full h-48 object-cover mb-3 bg-white/5" />
             )}
             <div
               onClick={() => fileRef.current?.click()}
@@ -362,7 +363,7 @@ function TattoosManagement() {
             <div key={t._id}
               className="group border border-white/8 hover:border-brand-accent/30 transition-colors bg-white/2">
               <div className="relative aspect-square overflow-hidden bg-white/5">
-                <img src={t.image} alt={t.title}
+                <img src={getImageUrl(t.image)} alt={t.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
               </div>
               <div className="p-3">

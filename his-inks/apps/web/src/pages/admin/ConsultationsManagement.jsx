@@ -245,6 +245,24 @@ function ConsultationsManagement() {
               )}
               {selected.messages.map(msg => {
                 const isAdmin = msg.sender === 'admin';
+                // Render image URLs as <img> tags
+                const renderText = (text) =>
+                  text.split('\n').map((line, i) => {
+                    const isUrl = /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)/i.test(line.trim()) ||
+                                  /^https?:\/\/res\.cloudinary\.com\/.+\/image\//i.test(line.trim());
+                    if (isUrl) {
+                      return (
+                        <img
+                          key={i}
+                          src={line.trim()}
+                          alt="Reference"
+                          className="mt-2 max-w-[200px] border border-white/10 object-contain"
+                        />
+                      );
+                    }
+                    return <p key={i} className={i > 0 ? 'mt-0.5' : ''}>{line}</p>;
+                  });
+
                 return (
                   <div key={msg._id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[70%] flex flex-col gap-1 ${isAdmin ? 'items-end' : 'items-start'}`}>
@@ -256,7 +274,7 @@ function ConsultationsManagement() {
                           ? 'bg-brand-accent/15 border border-brand-accent/20 text-white'
                           : 'bg-white/5 border border-white/10 text-white/80'
                       }`}>
-                        {msg.text}
+                        {renderText(msg.text)}
                       </div>
                       <span className="text-[10px] text-white/20">{formatTime(msg.createdAt)}</span>
                     </div>

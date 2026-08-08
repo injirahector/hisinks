@@ -207,6 +207,10 @@ function TattoosManagement() {
   const [modal, setModal]     = useState(null); // null | 'create' | { tattoo }
   const [confirm, setConfirm] = useState(null); // null | id string
 
+  // ── Filter / sort state ───────────────────────────────────────────────────
+  const [filterCat, setFilterCat] = useState('All');
+  const [sortBy, setSortBy]       = useState('newest');
+
   const showToast = (msg, type = 'success') => setToast({ msg, type });
 
   const load = () => {
@@ -218,6 +222,17 @@ function TattoosManagement() {
   };
 
   useEffect(load, []);
+
+  // ── Derived list ─────────────────────────────────────────────────────────
+  const displayed = [...tattoos]
+    .filter((t) => filterCat === 'All' || t.category === filterCat)
+    .sort((a, b) => {
+      if (sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
+      if (sortBy === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
+      if (sortBy === 'az')     return a.title.localeCompare(b.title);
+      if (sortBy === 'za')     return b.title.localeCompare(a.title);
+      return 0;
+    });
 
   const handleCreate = async (data) => {
     try {
@@ -264,6 +279,49 @@ function TattoosManagement() {
         </button>
       </div>
 
+      {/* ── Filter & Sort bar ─────────────────────────────────────────────── */}
+      {!loading && tattoos.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {/* Category pills */}
+          <div className="flex flex-wrap gap-2">
+            {['All', ...CATEGORIES].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setFilterCat(cat)}
+                className={`px-3 py-1 text-xs tracking-widest uppercase border transition-colors duration-200
+                  ${filterCat === cat
+                    ? 'border-brand-accent text-brand-accent bg-brand-accent/10'
+                    : 'border-white/10 text-white/40 hover:border-white/30 hover:text-white'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Sort + count row */}
+          <div className="flex items-center justify-between">
+            <p className="text-white/25 text-xs">
+              {displayed.length} {displayed.length === 1 ? 'design' : 'designs'}
+              {filterCat !== 'All' && <span className="ml-1">in <span className="text-white/50">{filterCat}</span></span>}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-white/30 text-xs tracking-widest uppercase">Sort</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-[#0B0B0B] border border-white/10 text-white/60 text-xs px-3 py-1.5
+                           focus:outline-none focus:border-brand-accent/50 transition-colors"
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="az">Title A → Z</option>
+                <option value="za">Title Z → A</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="mb-6 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>
       )}
@@ -280,16 +338,27 @@ function TattoosManagement() {
             </div>
           ))}
         </div>
-      ) : tattoos.length === 0 ? (
+      ) : displayed.length === 0 ? (
         <div className="border border-dashed border-white/10 py-24 text-center">
-          <p className="text-white/30 mb-4">No tattoo designs yet.</p>
-          <button onClick={() => setModal('create')} className="btn-outline text-xs py-2 px-4">
-            Add your first tattoo
-          </button>
+          {tattoos.length === 0 ? (
+            <>
+              <p className="text-white/30 mb-4">No tattoo designs yet.</p>
+              <button onClick={() => setModal('create')} className="btn-outline text-xs py-2 px-4">
+                Add your first tattoo
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-white/30 mb-3">No designs in <span className="text-white/50">{filterCat}</span>.</p>
+              <button onClick={() => setFilterCat('All')} className="btn-outline text-xs py-2 px-4">
+                Clear filter
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {tattoos.map((t) => (
+          {displayed.map((t) => (
             <div key={t._id}
               className="group border border-white/8 hover:border-brand-accent/30 transition-colors bg-white/2">
               <div className="relative aspect-square overflow-hidden bg-white/5">
@@ -299,7 +368,6 @@ function TattoosManagement() {
               <div className="p-3">
                 <p className="text-white text-sm font-medium truncate mb-0.5">{t.title}</p>
                 <p className="text-white/40 text-xs mb-1">{t.category}</p>
-                {t.priceRange && <p className="text-brand-accent text-xs mb-2">{t.priceRange}</p>}
                 <p className="text-white/20 text-xs mb-3">{fmtDate(t.createdAt)}</p>
                 <div className="flex gap-2">
                   <button onClick={() => setModal({ tattoo: t })}

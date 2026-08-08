@@ -157,11 +157,12 @@ async function generateAvailableSlots(dateStr) {
   const dayEnd   = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
 
   // ONE CUSTOMER PER DAY rule:
-  // Since only agreed-consultation customers can book, any pending or confirmed
-  // booking is a real commitment — block the day immediately on creation.
+  // Since only agreed-consultation customers can book, any pending, confirmed,
+  // or completed booking permanently blocks the day — completed sessions still
+  // occupied that date and should not be re-opened for new bookings.
   const activeBookingCount = await Booking.countDocuments({
     preferredDate: { $gte: dayStart, $lte: dayEnd },
-    status:        { $in: ['pending', 'confirmed'] },
+    status:        { $in: ['pending', 'confirmed', 'completed'] },
   });
 
   if (activeBookingCount > 0) {
@@ -221,11 +222,12 @@ async function getMonthAvailability(year, month) {
   const monthStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
   const monthEnd   = new Date(Date.UTC(year, month - 1, daysInMonth, 23, 59, 59, 999));
 
-  // Only CONFIRMED bookings block a day on the calendar.
-  // Pending bookings are awaiting review — the day stays available for more submissions.
+  // ONE CUSTOMER PER DAY rule: pending, confirmed, AND completed bookings all
+  // block the date — a completed session still occupied that day historically
+  // and should never be re-opened for new bookings.
   const activeBookings = await Booking.find({
     preferredDate: { $gte: monthStart, $lte: monthEnd },
-    status:        { $in: ['pending', 'confirmed'] },
+    status:        { $in: ['pending', 'confirmed', 'completed'] },
   }).select('preferredDate').lean();
 
   // Build a Set of date strings that already have a booking e.g. "2026-08-10"

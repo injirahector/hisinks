@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const CATEGORIES = [
@@ -22,6 +22,7 @@ function Portfolio() {
   const [error, setError]       = useState('');
   const [filter, setFilter]     = useState('All');
   const [selected, setSelected] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get('/tattoos?limit=100')
@@ -32,6 +33,20 @@ function Portfolio() {
 
   const filtered =
     filter === 'All' ? tattoos : tattoos.filter((t) => t.category === filter);
+
+  const handleBookThisStyle = (tattoo) => {
+    setSelected(null);
+    navigate('/my-consultation', {
+      state: {
+        tattooRef: {
+          title:       tattoo.title       || '',
+          image:       tattoo.image       || '',
+          category:    tattoo.category    || '',
+          description: tattoo.description || '',
+        },
+      },
+    });
+  };
 
   return (
     <div className="pt-24 pb-24 min-h-screen">
@@ -153,13 +168,12 @@ function Portfolio() {
                   {selected.priceRange && (
                     <p className="text-brand-accent text-sm font-medium">{selected.priceRange}</p>
                   )}
-                  <Link
-                    to="/book"
+                  <button
+                    onClick={() => handleBookThisStyle(selected)}
                     className="mt-3 inline-block btn-primary text-xs py-2 px-4"
-                    onClick={() => setSelected(null)}
                   >
                     Book This Style
-                  </Link>
+                  </button>
                 </div>
               </div>
             </div>

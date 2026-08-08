@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ImageLightbox from '../components/ImageLightbox';
@@ -161,13 +161,21 @@ function SlotPicker({ selectedDate, onDateChange, selectedSlot, onSlotSelect, er
 function BookingPage() {
   const { user }    = useAuth();
   const navigate    = useNavigate();
+  const location    = useLocation();
   const fileRef     = useRef(null);
+
+  // tattooRef passed from MyConsultation via router state
+  const tattooRef = location.state?.tattooRef || null;
 
   const [form, setForm] = useState(() => ({
     ...EMPTY,
     customerName: user ? `${user.firstName} ${user.lastName}`.trim() : '',
     phone:        user?.phone  || '',
     email:        user?.email  || '',
+    // Prefill from tattooRef if present
+    tattooIdea:   tattooRef?.title       || '',
+    description:  tattooRef?.description || '',
+    referenceImage: tattooRef?.image     || '',
   }));
   const [selectedDate, setSelectedDate]     = useState('');
   const [selectedSlot, setSelectedSlot]     = useState('');
@@ -203,7 +211,7 @@ function BookingPage() {
 
   // Image state
   const [imageFile, setImageFile]       = useState(null);
-  const [imagePreview, setImagePreview] = useState('');
+  const [imagePreview, setImagePreview] = useState(tattooRef?.image || '');
   const [uploadErr, setUploadErr]       = useState('');
   const [lightbox, setLightbox]         = useState(false);
 
@@ -413,9 +421,9 @@ function BookingPage() {
             contact you within 24–48 hours to confirm your appointment.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => setSuccess(false)} className="btn-outline text-xs py-2.5 px-6">
-              Submit Another
-            </button>
+            <Link to="/my-consultation" className="btn-outline text-xs py-2.5 px-6">
+              Start New Consultation
+            </Link>
             <Link to="/my-bookings" className="btn-primary text-xs py-2.5 px-6">
               View My Bookings
             </Link>
@@ -440,6 +448,23 @@ function BookingPage() {
               We&apos;ll reach out to confirm your session.
             </p>
           </div>
+
+          {/* Tattoo reference banner — shown when prefilled from consultation */}
+          {tattooRef?.image && (
+            <div className="mb-8 border border-brand-accent/30 bg-brand-accent/5 flex gap-4 p-4">
+              <img
+                src={tattooRef.image}
+                alt={tattooRef.title}
+                className="w-16 h-16 object-cover flex-shrink-0 border border-white/10"
+              />
+              <div className="min-w-0">
+                <p className="text-brand-accent text-xs tracking-widest uppercase mb-1">Pre-filled from your consultation</p>
+                <p className="text-white text-sm font-medium truncate">{tattooRef.title}</p>
+                {tattooRef.category && <p className="text-white/40 text-xs">{tattooRef.category}</p>}
+                <p className="text-white/25 text-xs mt-1">Tattoo idea, description and reference image have been filled in below.</p>
+              </div>
+            </div>
+          )}
 
           {serverErr && (
             <div className="mb-8 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">

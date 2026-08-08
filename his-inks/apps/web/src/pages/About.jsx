@@ -57,9 +57,13 @@ function About() {
               </p>
             </div>
           </div>
-          {/* Placeholder */}
-          <div className="aspect-[4/5] bg-white/5 border border-white/10 flex items-center justify-center">
-            <p className="text-white/20 text-sm tracking-widest uppercase">Studio Photo</p>
+          {/* Studio Image */}
+          <div className="overflow-hidden">
+            <img
+              src="/studio_image.PNG"
+              alt="His Inks Studio"
+              className="w-full h-auto object-contain"
+            />
           </div>
         </div>
 

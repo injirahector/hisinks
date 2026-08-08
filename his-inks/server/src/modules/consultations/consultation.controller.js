@@ -13,12 +13,13 @@ async function getMyConsultation(req, res, next) {
 // ── POST /api/consultations/my/messages  (customer) ──────────────────────────
 async function customerSendMessage(req, res, next) {
   try {
-    const { text } = req.body;
+    const { text, tattooRef } = req.body;
     if (!text || !text.trim()) {
       return res.status(422).json({ success: false, message: 'Message text is required.' });
     }
     // Pass full user object so the service can create a consultation if needed
-    const consultation = await consultationService.customerSendMessage(req.user, text);
+    // tattooRef is optional — only sent on first message from portfolio flow
+    const consultation = await consultationService.customerSendMessage(req.user, text, tattooRef || null);
     return res.status(200).json({ success: true, data: { consultation } });
   } catch (err) { next(err); }
 }

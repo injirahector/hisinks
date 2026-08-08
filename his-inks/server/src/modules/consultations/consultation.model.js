@@ -87,6 +87,15 @@ const consultationSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+
+    // Optional tattoo reference from the portfolio — set on first message
+    // when customer arrives via "Book This Style"
+    tattooRef: {
+      title:       { type: String, default: null },
+      image:       { type: String, default: null },
+      category:    { type: String, default: null },
+      description: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );

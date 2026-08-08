@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,7 +15,11 @@ const STATUS_LABEL = {
 function MyConsultation() {
   const { user, loading: authLoading } = useAuth();
   const navigate  = useNavigate();
+  const location  = useLocation();
   const bottomRef = useRef(null);
+
+  // tattooRef passed from Portfolio via router state
+  const routeTattooRef = location.state?.tattooRef || null;
 
   // null  = no consultation yet (or user cleared it to start a new one)
   // false = still loading
@@ -32,16 +36,33 @@ function MyConsultation() {
   const [depositSending, setDepositSending] = useState(false);
   const [depositMsg, setDepositMsg]         = useState('');
 
-  // Redirect if not logged in
+  // Redirect if not logged in — preserve tattooRef in the login state so it
+  // survives the login redirect and comes back to /my-consultation
   useEffect(() => {
-    if (!authLoading && !user) navigate('/login', { state: { from: '/my-consultation' } });
+    if (!authLoading && !user) {
+      navigate('/login', {
+        state: {
+          from: '/my-consultation',
+          tattooRef: routeTattooRef,
+        },
+      });
+    }
   }, [user, authLoading, navigate]);
 
   // Load existing consultation (find-only — never creates)
   useEffect(() => {
     if (!user) return;
     api.get('/consultations/my')
-      .then(res => setConsultation(res.data.data.consultation)) // null if none
+      .then(res => {
+        const c = res.data.data.consultation;
+        // If arriving from Portfolio with a tattooRef, always auto-start a new
+        // consultation — regardless of the current consultation's status
+        if (routeTattooRef) {
+          setConsultation(null);
+        } else {
+          setConsultation(c);
+        }
+      })
       .catch(() => { setLoadErr('Could not load your consultation. Please try again.'); setConsultation(null); });
   }, [user]);
 
@@ -57,7 +78,18 @@ function MyConsultation() {
     setSending(true);
     setSendErr('');
     try {
-      const res = await api.post('/consultations/my/messages', { text });
+      // Send tattooRef if:
+      // 1. No consultation exists yet (will be created on this message), OR
+      // 2. Existing consultation has no messages yet, OR
+      // 3. Existing consultation already has a tattooRef saved (already handled server-side — safe to re-send)
+      const isNewThread = !consultation ||
+        consultation === null ||
+        (consultation.messages?.length === 0 && !consultation.tattooRef?.image);
+      const payload = { text };
+      if (isNewThread && routeTattooRef) {
+        payload.tattooRef = routeTattooRef;
+      }
+      const res = await api.post('/consultations/my/messages', payload);
       setConsultation(res.data.data.consultation);
       setText('');
     } catch (err) {
@@ -135,6 +167,30 @@ function MyConsultation() {
               We'll discuss the design, agree on a price, and walk you through next steps.
             </p>
           </div>
+
+          {/* Tattoo reference card — shown when arriving from Portfolio */}
+          {routeTattooRef?.image && (
+            <div className="mb-6 border border-brand-accent/30 bg-brand-accent/5 flex gap-4 p-4">
+              <img
+                src={routeTattooRef.image}
+                alt={routeTattooRef.title}
+                className="w-20 h-20 object-cover flex-shrink-0 border border-white/10"
+              />
+              <div className="min-w-0">
+                <p className="text-brand-accent text-xs tracking-widest uppercase mb-1">Your Selected Style</p>
+                <p className="text-white font-medium text-sm truncate">{routeTattooRef.title}</p>
+                {routeTattooRef.category && (
+                  <p className="text-white/40 text-xs">{routeTattooRef.category}</p>
+                )}
+                {routeTattooRef.description && (
+                  <p className="text-white/30 text-xs mt-1 line-clamp-2">{routeTattooRef.description}</p>
+                )}
+                <p className="text-white/25 text-xs mt-2">
+                  This reference will be attached to your consultation automatically.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Start prompt — message box */}
           <div className="border border-white/8 bg-white/[0.02]">
@@ -223,6 +279,24 @@ function MyConsultation() {
           )}
         </div>
 
+        {/* Tattoo reference card — shown if consultation originated from portfolio */}
+        {consultation.tattooRef?.image && (
+          <div className="mb-6 border border-white/10 bg-white/[0.02] flex gap-4 p-4">
+            <img
+              src={consultation.tattooRef.image}
+              alt={consultation.tattooRef.title}
+              className="w-16 h-16 object-cover flex-shrink-0 border border-white/10"
+            />
+            <div className="min-w-0">
+              <p className="text-white/30 text-xs tracking-widest uppercase mb-1">Style Reference</p>
+              <p className="text-white text-sm font-medium truncate">{consultation.tattooRef.title}</p>
+              {consultation.tattooRef.category && (
+                <p className="text-white/40 text-xs">{consultation.tattooRef.category}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── AGREED: deposit payment instructions ── */}
         {isAgreed && (
           <div className="mb-6 border border-green-500/30 bg-green-500/5">
@@ -238,10 +312,11 @@ function MyConsultation() {
               <p className="text-white/50 text-xs tracking-widest uppercase mb-3">How to pay</p>
               <ol className="space-y-1.5 text-sm text-white/60">
                 <li><span className="text-white/30 mr-2">1.</span>Go to <strong className="text-white/80">M-Pesa</strong> → Lipa Na M-Pesa → Pay Bill</li>
-                <li><span className="text-white/30 mr-2">2.</span>Business No: <strong className="text-white font-mono">522522</strong></li>
-                <li><span className="text-white/30 mr-2">3.</span>Account No: <strong className="text-white font-mono">His Inks Deposit</strong></li>
+                <li><span className="text-white/30 mr-2">2.</span>Business No: <strong className="text-white font-mono">625625</strong></li>
+                <li><span className="text-white/30 mr-2">3.</span>Account No: <strong className="text-white font-mono">7715761427</strong></li>
                 <li><span className="text-white/30 mr-2">4.</span>Amount: <strong className="text-white">KES {depositAmount?.toLocaleString()}</strong></li>
                 <li><span className="text-white/30 mr-2">5.</span>Enter your PIN and confirm</li>
+                <li><span className="text-white/30 mr-2">6.</span>Account Name: <strong className="text-white font-mono">Hector Surherland Injira</strong></li>
               </ol>
             </div>
             <form onSubmit={handleDepositSubmit} className="px-5 py-4">
@@ -302,7 +377,11 @@ function MyConsultation() {
               Your KES {depositAmount?.toLocaleString()} deposit has been verified.
               Agreed total: KES {agreedPrice?.toLocaleString()}.
             </p>
-            <Link to="/book" className="btn-primary text-xs py-2.5 px-6 inline-flex">
+            <Link
+              to="/book"
+              state={{ tattooRef: consultation.tattooRef?.image ? consultation.tattooRef : null }}
+              className="btn-primary text-xs py-2.5 px-6 inline-flex"
+            >
               Book Appointment →
             </Link>
           </div>
@@ -358,6 +437,25 @@ function MyConsultation() {
             )}
             {messages.map((msg) => {
               const isCustomer = msg.sender === 'customer';
+              // Split message into lines; render image URLs as <img> tags
+              const renderText = (text) =>
+                text.split('\n').map((line, i) => {
+                  const trimmed = line.trim();
+                  const isUrl = /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)/i.test(trimmed) ||
+                                /^https?:\/\/res\.cloudinary\.com\/.+\/image\//i.test(trimmed);
+                  if (isUrl) {
+                    return (
+                      <img
+                        key={i}
+                        src={trimmed}
+                        alt="Reference"
+                        className="mt-2 max-w-[200px] border border-white/10 object-contain"
+                      />
+                    );
+                  }
+                  return <p key={i} className={i > 0 ? 'mt-0.5' : ''}>{line}</p>;
+                });
+
               return (
                 <div key={msg._id} className={`flex ${isCustomer ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[75%] ${isCustomer ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
@@ -369,7 +467,7 @@ function MyConsultation() {
                         ? 'bg-brand-accent/15 border border-brand-accent/20 text-white'
                         : 'bg-white/5 border border-white/10 text-white/80'
                     }`}>
-                      {msg.text}
+                      {renderText(msg.text)}
                     </div>
                     <span className="text-[10px] text-white/20">{formatTime(msg.createdAt)}</span>
                   </div>

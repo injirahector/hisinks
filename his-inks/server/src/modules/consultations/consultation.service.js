@@ -54,12 +54,32 @@ async function createConsultation(user) {
 // ── Customer: send a message ──────────────────────────────────────────────────
 // If no active consultation exists (none yet, or latest is booked/closed),
 // one is created here — on first message, never on page load.
-async function customerSendMessage(user, text) {
+async function customerSendMessage(user, text, tattooRef) {
   let c = await latestForUser(user._id);
 
   const needsNew = !c || c.status === 'booked' || c.status === 'closed';
   if (needsNew) {
     c = await createConsultation(user);
+  }
+
+  // Save tattooRef on the very first message of a fresh consultation
+  // and auto-insert a reference message so admin sees it in the thread
+  if (tattooRef && !c.tattooRef?.image && c.messages.length === 0) {
+    c.tattooRef = {
+      title:       tattooRef.title       || null,
+      image:       tattooRef.image       || null,
+      category:    tattooRef.category    || null,
+      description: tattooRef.description || null,
+    };
+
+    // Build a clear reference message visible to admin in the thread
+    const lines = ['📌 Style Reference from Portfolio:'];
+    if (tattooRef.title)       lines.push(`Title: ${tattooRef.title}`);
+    if (tattooRef.category)    lines.push(`Category: ${tattooRef.category}`);
+    if (tattooRef.description) lines.push(`Description: ${tattooRef.description}`);
+    if (tattooRef.image)       lines.push(`Image: ${tattooRef.image}`);
+
+    c.messages.push({ sender: 'customer', text: lines.join('\n') });
   }
 
   if (c.status === 'agreed' || c.status === 'deposit_pending' || c.status === 'deposit_paid') {

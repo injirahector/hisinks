@@ -5,6 +5,10 @@ import { useNotifications } from '../context/NotificationContext';
 
 const NAV_LINKS = [
   { label: 'Home',      to: '/' },
+];
+
+// Extra nav links shown only when a user is logged in
+const AUTH_NAV_LINKS = [
   { label: 'Portfolio', to: '/portfolio' },
   { label: 'About',     to: '/about' },
   { label: 'Contact',   to: '/contact' },
@@ -30,6 +34,7 @@ const TYPE_STYLES = {
   consultation_agreed:  { dot: 'bg-yellow-400' },
   deposit_confirmed:    { dot: 'bg-green-400' },
   deposit_rejected:     { dot: 'bg-red-400' },
+  direct_message_reply: { dot: 'bg-purple-400' },
 };
 
 // ── Notification bell + dropdown ──────────────────────────────────────────────
@@ -172,9 +177,17 @@ function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const [menuOpen, setMenuOpen]       = useState(false); // mobile menu
-  const [dropdownOpen, setDropdownOpen] = useState(false); // desktop profile dropdown
+  const [menuOpen, setMenuOpen]         = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [scrolled, setScrolled]         = useState(false);
   const dropdownRef = useRef(null);
+
+  // Transparent → solid after 100px scroll
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 100);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -195,7 +208,13 @@ function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-brand-bg/90 backdrop-blur-sm border-b border-white/5">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500
+        ${scrolled
+          ? 'bg-[#0B0B0B]/95 backdrop-blur-md border-b border-white/8 shadow-[0_4px_24px_rgba(0,0,0,0.4)]'
+          : 'bg-transparent border-b border-transparent'
+        }`}
+    >
       <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
 
         {/* Logo */}
@@ -210,6 +229,16 @@ function Navbar() {
               <NavLink
                 to={link.to}
                 end={link.to === '/'}
+                className={({ isActive }) => `nav-link ${isActive ? 'text-brand-accent' : ''}`}
+              >
+                {link.label}
+              </NavLink>
+            </li>
+          ))}
+          {user && user.role !== 'admin' && AUTH_NAV_LINKS.map((link) => (
+            <li key={link.to}>
+              <NavLink
+                to={link.to}
                 className={({ isActive }) => `nav-link ${isActive ? 'text-brand-accent' : ''}`}
               >
                 {link.label}
@@ -265,6 +294,18 @@ function Navbar() {
                     {user.role === 'customer' && (
                       <>
                         <Link
+                          to="/dashboard"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-accent/80
+                                     hover:text-brand-accent hover:bg-brand-accent/5 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round"
+                              d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                          </svg>
+                          My Dashboard
+                        </Link>
+                        <Link
                           to="/my-bookings"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
@@ -299,6 +340,18 @@ function Navbar() {
                               d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
                           </svg>
                           My Reviews
+                        </Link>
+                        <Link
+                          to="/messages"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
+                                     hover:text-white hover:bg-white/5 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round"
+                              d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                          </svg>
+                          Messages
                         </Link>
                       </>
                     )}
@@ -340,10 +393,10 @@ function Navbar() {
             <Link to="/login" className="nav-link">Sign In</Link>
           )}
 
-          <Link to="/book" className="btn-primary text-xs py-2 px-5">Book Now</Link>
+          {user?.role !== 'admin' && (
+            <Link to="/book" className="btn-primary text-xs py-2 px-5">Book Now</Link>
+          )}
         </div>
-
-        {/* Mobile hamburger */}
         <button
           className="md:hidden flex flex-col gap-1.5 p-2 ml-2"
           onClick={() => setMenuOpen((o) => !o)}
@@ -357,12 +410,26 @@ function Navbar() {
 
       {/* ── Mobile menu ──────────────────────────────────────────────────────── */}
       {menuOpen && (
-        <div className="md:hidden bg-brand-bg border-t border-white/8 px-6 py-6 space-y-4">
+        <div className="md:hidden bg-[#0B0B0B]/98 backdrop-blur-md border-t border-white/8 px-6 py-6 space-y-4">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
               end={link.to === '/'}
+              onClick={() => setMenuOpen(false)}
+              className={({ isActive }) =>
+                `block text-sm tracking-widest uppercase py-1 transition-colors ${
+                  isActive ? 'text-brand-accent' : 'text-white/60 hover:text-white'
+                }`
+              }
+            >
+              {link.label}
+            </NavLink>
+          ))}
+          {user && user.role !== 'admin' && AUTH_NAV_LINKS.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
                 `block text-sm tracking-widest uppercase py-1 transition-colors ${
@@ -394,6 +461,10 @@ function Navbar() {
                 )}
                 {user.role === 'customer' && (
                   <>
+                    <Link to="/dashboard" onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-brand-accent/80 hover:text-brand-accent py-2">
+                      My Dashboard
+                    </Link>
                     <Link to="/my-bookings" onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
                       My Bookings
@@ -405,6 +476,10 @@ function Navbar() {
                     <Link to="/my-reviews" onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
                       My Reviews
+                    </Link>
+                    <Link to="/messages" onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
+                      Messages
                     </Link>
                     <Link to="/notifications" onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
@@ -430,9 +505,11 @@ function Navbar() {
               </Link>
             )}
             <div className="pt-2">
-              <Link to="/book" onClick={() => setMenuOpen(false)} className="btn-primary block text-center text-xs py-3">
-                Book Now
-              </Link>
+              {user?.role !== 'admin' && (
+                <Link to="/book" onClick={() => setMenuOpen(false)} className="btn-primary block text-center text-xs py-3">
+                  Book Now
+                </Link>
+              )}
             </div>
           </div>
         </div>

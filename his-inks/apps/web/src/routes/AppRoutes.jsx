@@ -3,14 +3,16 @@ import MainLayout from '../layouts/MainLayout';
 import Home from '../pages/Home';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
-import Portfolio from '../pages/Portfolio';
 import BookingPage from '../pages/BookingPage';
+import Portfolio from '../pages/Portfolio';
 import About from '../pages/About';
 import Contact from '../pages/Contact';
 import MyBookings from '../pages/MyBookings';
 import MyConsultation from '../pages/MyConsultation';
 import MyReviews from '../pages/MyReviews';
 import Notifications from '../pages/Notifications';
+import Messages from '../pages/Messages';
+import CustomerDashboard from '../pages/CustomerDashboard';
 import AdminGuard from '../components/AdminGuard';
 import AdminLayout from '../pages/admin/AdminLayout';
 import AdminDashboard from '../pages/admin/AdminDashboard';
@@ -18,6 +20,8 @@ import TattoosManagement from '../pages/admin/TattoosManagement';
 import BookingsManagement from '../pages/admin/BookingsManagement';
 import ConsultationsManagement from '../pages/admin/ConsultationsManagement';
 import ReviewsManagement from '../pages/admin/ReviewsManagement';
+import MessagesManagement from '../pages/admin/MessagesManagement';
+import ReportsAnalytics from '../pages/admin/ReportsAnalytics';
 
 function AppRoutes() {
   return (
@@ -25,14 +29,16 @@ function AppRoutes() {
       {/* ── Public / customer routes ── */}
       <Route element={<MainLayout />}>
         <Route path="/"                  element={<Home />} />
-        <Route path="/portfolio"         element={<Portfolio />} />
         <Route path="/book"              element={<BookingPage />} />
+        <Route path="/portfolio"         element={<Portfolio />} />
         <Route path="/about"             element={<About />} />
         <Route path="/contact"           element={<Contact />} />
         <Route path="/my-bookings"       element={<MyBookings />} />
         <Route path="/my-consultation"   element={<MyConsultation />} />
         <Route path="/my-reviews"        element={<MyReviews />} />
         <Route path="/notifications"     element={<Notifications />} />
+        <Route path="/messages"          element={<Messages />} />
+        <Route path="/dashboard"         element={<CustomerDashboard />} />
         <Route path="/login"             element={<Login />} />
         <Route path="/register"          element={<Register />} />
       </Route>
@@ -45,6 +51,8 @@ function AppRoutes() {
           <Route path="/admin/bookings"           element={<BookingsManagement />} />
           <Route path="/admin/consultations"      element={<ConsultationsManagement />} />
           <Route path="/admin/reviews"            element={<ReviewsManagement />} />
+          <Route path="/admin/messages"           element={<MessagesManagement />} />
+          <Route path="/admin/reports"            element={<ReportsAnalytics />} />
           <Route path="/admin/*"                  element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>

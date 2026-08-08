@@ -13,6 +13,8 @@ const consultationRouter  = require('./modules/consultations/consultation.routes
 const reviewRouter        = require('./modules/reviews/review.routes');
 const reviewAdminRouter   = require('./modules/reviews/review.admin.routes');
 const notificationRouter  = require('./modules/notifications/notification.routes');
+const messageRouter       = require('./modules/messages/message.routes');
+const reportsRouter       = require('./modules/reports/reports.routes');
 
 const app = express();
 
@@ -48,6 +50,8 @@ app.use('/api/consultations',  consultationRouter);
 app.use('/api/reviews',        reviewRouter);
 app.use('/api/admin/reviews',  reviewAdminRouter);
 app.use('/api/notifications',  notificationRouter);
+app.use('/api/messages',       messageRouter);
+app.use('/api/admin/reports',  reportsRouter);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {

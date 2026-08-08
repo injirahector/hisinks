@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import ImageLightbox from '../components/ImageLightbox';
+import ReviewModal from '../components/ReviewModal';
 
 const STATUS_STYLES = {
   pending:   { text: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/30', label: 'Pending Review' },
@@ -20,10 +21,13 @@ const STATUS_MESSAGES = {
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
 
-function BookingCard({ booking }) {
-  const [open, setOpen] = useState(false);
+// ── Single booking card ───────────────────────────────────────────────────────
+function BookingCard({ booking, reviewed, onRate }) {
+  const [open,     setOpen]     = useState(false);
   const [lightbox, setLightbox] = useState(false);
-  const s = STATUS_STYLES[booking.status] || STATUS_STYLES.pending;
+  const s            = STATUS_STYLES[booking.status] || STATUS_STYLES.pending;
+  const isCompleted  = booking.status === 'completed';
+  const hasReviewed  = reviewed.has(booking._id);
 
   return (
     <div className={`border ${open ? 'border-white/20' : 'border-white/8'} transition-colors`}>
@@ -53,6 +57,38 @@ function BookingCard({ booking }) {
           <div className={`px-4 py-3 border ${s.border} ${s.bg}`}>
             <p className={`text-sm ${s.text}`}>{STATUS_MESSAGES[booking.status]}</p>
           </div>
+
+          {/* ── Rate prompt (completed, not yet reviewed) ── */}
+          {isCompleted && !hasReviewed && (
+            <div className="flex items-center justify-between gap-4 px-4 py-3
+                            bg-brand-accent/5 border border-brand-accent/20">
+              <div>
+                <p className="text-brand-accent text-xs uppercase tracking-widest mb-0.5">
+                  How was your session?
+                </p>
+                <p className="text-white/50 text-xs">
+                  Share your experience and help others discover the studio.
+                </p>
+              </div>
+              <button
+                onClick={() => onRate(booking)}
+                className="btn-primary text-xs py-2 px-5 flex-shrink-0 whitespace-nowrap"
+              >
+                ★ Rate this session
+              </button>
+            </div>
+          )}
+
+          {/* ── Already reviewed ── */}
+          {isCompleted && hasReviewed && (
+            <div className="flex items-center justify-between gap-4 px-4 py-3
+                            bg-white/3 border border-white/8">
+              <p className="text-white/40 text-xs">You have already reviewed this session.</p>
+              <Link to="/my-reviews" className="text-brand-accent text-xs hover:underline flex-shrink-0">
+                View review →
+              </Link>
+            </div>
+          )}
 
           {booking.notes && (
             <div className="bg-white/3 border border-white/8 px-4 py-3">
@@ -125,17 +161,51 @@ function BookingCard({ booking }) {
   );
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
 function MyBookings() {
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
+  const [bookings,      setBookings]      = useState([]);
+  const [reviewed,      setReviewed]      = useState(new Set());
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [ratingBooking, setRatingBooking] = useState(null); // booking open in modal
 
   useEffect(() => {
-    api.get('/users/my-bookings')
-      .then((r) => setBookings(r.data.data.bookings))
+    // Fetch bookings and existing reviews in parallel
+    Promise.all([
+      api.get('/users/my-bookings'),
+      api.get('/reviews/me').catch(() => ({ data: { data: { reviews: [] } } })),
+    ])
+      .then(([bookingsRes, reviewsRes]) => {
+        const allBookings = bookingsRes.data.data.bookings;
+        setBookings(allBookings);
+
+        // Build a Set of booking IDs that already have a review
+        const reviewedIds = new Set(
+          reviewsRes.data.data.reviews
+            .map((r) => r.appointment?._id)
+            .filter(Boolean)
+        );
+        setReviewed(reviewedIds);
+
+        // Auto-show modal for the first completed, unreviewed booking
+        // (only once per page load — the customer can dismiss it)
+        const firstUnreviewed = allBookings.find(
+          (b) => b.status === 'completed' && !reviewedIds.has(b._id)
+        );
+        if (firstUnreviewed) {
+          setRatingBooking(firstUnreviewed);
+        }
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  // Called when a review is successfully submitted via the modal
+  const handleReviewSaved = (review) => {
+    const bookingId = review.appointment?._id || review.appointment;
+    setReviewed((prev) => new Set([...prev, bookingId]));
+    // Keep modal open briefly to show the success state; close handled by modal's Done button
+  };
 
   return (
     <div className="pt-24 pb-24 min-h-screen">
@@ -147,7 +217,9 @@ function MyBookings() {
         </div>
 
         {error && (
-          <div className="mb-6 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>
+          <div className="mb-6 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            {error}
+          </div>
         )}
 
         {loading ? (
@@ -163,7 +235,14 @@ function MyBookings() {
           </div>
         ) : (
           <div className="space-y-3">
-            {bookings.map((b) => <BookingCard key={b._id} booking={b} />)}
+            {bookings.map((b) => (
+              <BookingCard
+                key={b._id}
+                booking={b}
+                reviewed={reviewed}
+                onRate={setRatingBooking}
+              />
+            ))}
           </div>
         )}
 
@@ -173,6 +252,15 @@ function MyBookings() {
           </div>
         )}
       </div>
+
+      {/* Review modal — auto-shown or triggered by Rate button */}
+      {ratingBooking && (
+        <ReviewModal
+          booking={ratingBooking}
+          onClose={() => setRatingBooking(null)}
+          onSaved={handleReviewSaved}
+        />
+      )}
     </div>
   );
 }

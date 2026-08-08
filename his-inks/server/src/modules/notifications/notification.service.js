@@ -133,8 +133,8 @@ function notifyBookingCompleted(userId, preferredDate) {
     userId,
     type: 'booking_completed',
     title: 'Session Completed ✅',
-    message: `Your tattoo session on ${dateStr} has been marked as completed. Thank you for visiting His Inks Studio!`,
-    link: '/my-bookings',
+    message: `Your tattoo session on ${dateStr} is complete. How did it go? We'd love to hear your thoughts — tap to leave a review!`,
+    link: '/my-reviews',
   });
 }
 
@@ -234,6 +234,29 @@ async function notifyAdminNewReview(customerName, rating) {
   ));
 }
 
+async function notifyAdminNewDirectMessage(customerName) {
+  const adminIds = await getAdminIds();
+  return Promise.all(adminIds.map((adminId) =>
+    createNotification({
+      userId:  adminId,
+      type:    'admin_direct_message',
+      title:   'New Direct Message 💬',
+      message: `${customerName} sent you a direct message.`,
+      link:    '/admin/messages',
+    })
+  ));
+}
+
+function notifyCustomerDirectMessageReply(userId) {
+  return createNotification({
+    userId,
+    type:    'direct_message_reply',
+    title:   'New Message from His Inks 📩',
+    message: 'The studio replied to your message. Tap to read.',
+    link:    '/messages',
+  });
+}
+
 module.exports = {
   createNotification,
   getMyNotifications,
@@ -253,5 +276,8 @@ module.exports = {
   notifyAdminConsultationMessage,
   notifyAdminDepositSubmitted,
   notifyAdminNewReview,
+  notifyAdminNewDirectMessage,
+  // Direct message wrappers
+  notifyCustomerDirectMessageReply,
   clearAdminCache,
 };

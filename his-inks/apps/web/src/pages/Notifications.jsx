@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import api from '../services/api';
+import ReviewModal from '../components/ReviewModal';
 
 // ── Visual config per notification type ───────────────────────────────────────
 const TYPE_CONFIG = {
@@ -68,6 +70,15 @@ const TYPE_CONFIG = {
     ),
     iconClass: 'text-red-400 bg-red-400/10 border-red-400/20',
   },
+  direct_message_reply: {
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round"
+          d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+      </svg>
+    ),
+    iconClass: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+  },
 };
 
 const DEFAULT_CONFIG = {
@@ -83,7 +94,7 @@ const DEFAULT_CONFIG = {
 function fmtTime(date) {
   const d = new Date(date);
   const now = new Date();
-  const diffMs = now - d;
+  const diffMs  = now - d;
   const diffMin = Math.floor(diffMs / 60_000);
   const diffHr  = Math.floor(diffMs / 3_600_000);
   const diffDay = Math.floor(diffMs / 86_400_000);
@@ -96,14 +107,23 @@ function fmtTime(date) {
 }
 
 // ── Notification card ─────────────────────────────────────────────────────────
-function NotificationCard({ notification, onMarkRead }) {
+function NotificationCard({ notification, onMarkRead, onRateSession }) {
   const navigate = useNavigate();
   const cfg = TYPE_CONFIG[notification.type] || DEFAULT_CONFIG;
 
   const handleClick = () => {
     if (!notification.read) onMarkRead(notification._id);
+
+    // booking_completed → open the review modal instead of navigating
+    if (notification.type === 'booking_completed') {
+      onRateSession();
+      return;
+    }
+
     if (notification.link) navigate(notification.link);
   };
+
+  const isCompleted = notification.type === 'booking_completed';
 
   return (
     <div
@@ -136,11 +156,14 @@ function NotificationCard({ notification, onMarkRead }) {
         <p className="text-white/45 text-sm mt-1 leading-relaxed">
           {notification.message}
         </p>
-        {notification.link && (
-          <p className="text-brand-accent/60 text-xs mt-2 hover:text-brand-accent transition-colors">
-            View details →
-          </p>
-        )}
+        {/* CTA text */}
+        <p className={`text-xs mt-2 transition-colors ${
+          isCompleted
+            ? 'text-brand-accent/80 hover:text-brand-accent'
+            : 'text-brand-accent/60 hover:text-brand-accent'
+        }`}>
+          {isCompleted ? '★ Tap to rate your session →' : 'View details →'}
+        </p>
       </div>
 
       {/* Unread indicator */}
@@ -158,6 +181,10 @@ function Notifications() {
     useNotifications();
   const navigate = useNavigate();
 
+  // booking to show in the review modal
+  const [ratingBooking, setRatingBooking] = useState(null);
+  const [loadingBooking, setLoadingBooking] = useState(false);
+
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) navigate('/login', { replace: true });
@@ -167,6 +194,37 @@ function Notifications() {
   useEffect(() => {
     if (user && !fetchedOnce) fetchNotifications();
   }, [user, fetchedOnce, fetchNotifications]);
+
+  // Fetch the first completed unreviewed booking to pass to the modal
+  const openRateModal = useCallback(async () => {
+    setLoadingBooking(true);
+    try {
+      const [bookingsRes, reviewsRes] = await Promise.all([
+        api.get('/users/my-bookings'),
+        api.get('/reviews/me').catch(() => ({ data: { data: { reviews: [] } } })),
+      ]);
+
+      const allBookings  = bookingsRes.data.data.bookings;
+      const reviewedIds  = new Set(
+        reviewsRes.data.data.reviews.map((r) => r.appointment?._id).filter(Boolean)
+      );
+
+      const target = allBookings.find(
+        (b) => b.status === 'completed' && !reviewedIds.has(b._id)
+      );
+
+      if (target) {
+        setRatingBooking(target);
+      } else {
+        // All sessions already reviewed — navigate to the reviews page instead
+        navigate('/my-reviews');
+      }
+    } catch {
+      navigate('/my-reviews');
+    } finally {
+      setLoadingBooking(false);
+    }
+  }, [navigate]);
 
   if (authLoading) return null;
 
@@ -193,6 +251,13 @@ function Notifications() {
             )}
           </div>
         </div>
+
+        {/* Loading overlay for booking fetch */}
+        {loadingBooking && (
+          <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center">
+            <div className="text-white/60 text-sm">Loading…</div>
+          </div>
+        )}
 
         {/* Content */}
         {loading && !fetchedOnce ? (
@@ -223,7 +288,12 @@ function Notifications() {
                 {notifications
                   .filter((n) => !n.read)
                   .map((n) => (
-                    <NotificationCard key={n._id} notification={n} onMarkRead={markAsRead} />
+                    <NotificationCard
+                      key={n._id}
+                      notification={n}
+                      onMarkRead={markAsRead}
+                      onRateSession={openRateModal}
+                    />
                   ))}
               </>
             )}
@@ -235,13 +305,30 @@ function Notifications() {
                 {notifications
                   .filter((n) => n.read)
                   .map((n) => (
-                    <NotificationCard key={n._id} notification={n} onMarkRead={markAsRead} />
+                    <NotificationCard
+                      key={n._id}
+                      notification={n}
+                      onMarkRead={markAsRead}
+                      onRateSession={openRateModal}
+                    />
                   ))}
               </>
             )}
           </div>
         )}
       </div>
+
+      {/* Review modal */}
+      {ratingBooking && (
+        <ReviewModal
+          booking={ratingBooking}
+          onClose={() => setRatingBooking(null)}
+          onSaved={() => {
+            // After saving, mark this booking as reviewed locally
+            // (modal stays open to show success state — user clicks Done to close)
+          }}
+        />
+      )}
     </div>
   );
 }

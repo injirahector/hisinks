@@ -65,11 +65,19 @@ function TattooForm({ title, initial, onSave, onCancel }) {
 
   const update = (f) => (e) => setForm((p) => ({ ...p, [f]: e.target.value }));
 
+  // Generate / revoke blob preview URL whenever a new file is picked
+  useEffect(() => {
+    if (!imageFile) return;
+    const url = URL.createObjectURL(imageFile);
+    setPreview(url);
+    // Revoke the old blob URL when the component unmounts or file changes
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setImageFile(file);
-    setPreview(URL.createObjectURL(file));
     setUploadErr('');
   };
 
@@ -120,7 +128,7 @@ function TattooForm({ title, initial, onSave, onCancel }) {
               Tattoo Image <span className="text-brand-accent">*</span>
             </label>
             {preview && (
-              <img src={getImageUrl(preview)} alt="preview" className="w-full h-48 object-cover mb-3 bg-white/5" />
+              <img src={preview} alt="preview" className="w-full h-48 object-cover mb-3 bg-white/5" />
             )}
             <div
               onClick={() => fileRef.current?.click()}
@@ -129,7 +137,8 @@ function TattooForm({ title, initial, onSave, onCancel }) {
               {uploading ? 'Uploading…' : preview ? 'Click to replace image' : 'Click to select image (jpg, png, webp · max 5 MB)'}
             </div>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
-              className="hidden" onChange={handleFile} />
+              style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+              onChange={handleFile} />
             {uploadErr && <p className="text-red-400 text-xs mt-1">{uploadErr}</p>}
             {!imageFile && (
               <input type="url" value={form.image} onChange={update('image')}

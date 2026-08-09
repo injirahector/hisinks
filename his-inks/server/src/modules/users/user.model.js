@@ -31,11 +31,30 @@ const userSchema = new mongoose.Schema(
       sparse: true,
       trim: true,
     },
+    // Password is only required for local (email/password) accounts.
+    // Google-authenticated users have no password — authProvider differentiates them.
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: false,
       minlength: [8, 'Password must be at least 8 characters'],
       select: false,
+    },
+
+    // ── OAuth / social login fields ────────────────────────────────────────
+    // 'local'  — registered with email + password
+    // 'google' — registered / logged in via Google OAuth
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
+    },
+
+    // Google's unique user ID — used to look up returning Google users.
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,  // allows null for local accounts; only indexed when present
+      index: true,
     },
 
     // Two roles only:
@@ -71,6 +90,26 @@ const userSchema = new mongoose.Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+
+    // ── Referral fields ────────────────────────────────────────────────────
+    // Unique short code that this customer can share (e.g. "HECTOR7K").
+    // Generated once on account creation; permanent unless explicitly changed.
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,  // allows null for admin accounts and legacy rows during migration
+      trim: true,
+      uppercase: true,
+      index: true,
+    },
+
+    // The User._id of the customer who referred this person.
+    // Set once at registration time; never changed afterwards.
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
   },
   {

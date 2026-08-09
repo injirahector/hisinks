@@ -257,6 +257,20 @@ function notifyCustomerDirectMessageReply(userId) {
   });
 }
 
+// ── Referral notification ─────────────────────────────────────────────────────
+function notifyReferralEligible(userId, commissionAmount) {
+  const amount = commissionAmount
+    ? `KES ${Number(commissionAmount).toLocaleString('en-KE')}`
+    : 'a commission';
+  return createNotification({
+    userId,
+    type:    'referral_commission_eligible',
+    title:   'Referral Reward Eligible 🎉',
+    message: `Your referral has completed their tattoo and payment. You have earned ${amount} in referral commission. The payment will be processed manually by His Inks.`,
+    link:    '/referrals',
+  });
+}
+
 module.exports = {
   createNotification,
   getMyNotifications,
@@ -279,5 +293,7 @@ module.exports = {
   notifyAdminNewDirectMessage,
   // Direct message wrappers
   notifyCustomerDirectMessageReply,
+  // Referral wrappers
+  notifyReferralEligible,
   clearAdminCache,
 };

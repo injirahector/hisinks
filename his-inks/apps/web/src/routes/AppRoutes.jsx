@@ -14,6 +14,7 @@ import Notifications from '../pages/Notifications';
 import Messages from '../pages/Messages';
 import CustomerDashboard from '../pages/CustomerDashboard';
 import AdminGuard from '../components/AdminGuard';
+import CustomerGuard from '../components/CustomerGuard';
 import AdminLayout from '../pages/admin/AdminLayout';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import TattoosManagement from '../pages/admin/TattoosManagement';
@@ -23,6 +24,8 @@ import ReviewsManagement from '../pages/admin/ReviewsManagement';
 import MessagesManagement from '../pages/admin/MessagesManagement';
 import ReportsAnalytics from '../pages/admin/ReportsAnalytics';
 import CustomersManagement from '../pages/admin/CustomersManagement';
+import ReferralsManagement from '../pages/admin/ReferralsManagement';
+import MyReferrals from '../pages/MyReferrals';
 
 function AppRoutes() {
   return (
@@ -44,6 +47,13 @@ function AppRoutes() {
         <Route path="/register"          element={<Register />} />
       </Route>
 
+      {/* ── Authenticated customer routes ── */}
+      <Route element={<CustomerGuard />}>
+        <Route element={<MainLayout />}>
+          <Route path="/referrals" element={<MyReferrals />} />
+        </Route>
+      </Route>
+
       {/* ── Admin routes (protected) ── */}
       <Route element={<AdminGuard />}>
         <Route element={<AdminLayout />}>
@@ -55,6 +65,7 @@ function AppRoutes() {
           <Route path="/admin/messages"           element={<MessagesManagement />} />
           <Route path="/admin/reports"            element={<ReportsAnalytics />} />
           <Route path="/admin/customers"          element={<CustomersManagement />} />
+          <Route path="/admin/referrals"          element={<ReferralsManagement />} />
           <Route path="/admin/*"                  element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>

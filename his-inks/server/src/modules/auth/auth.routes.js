@@ -9,6 +9,9 @@ router.post('/register', authController.register);
 // POST /api/auth/login
 router.post('/login', authController.login);
 
+// POST /api/auth/google  — Google Identity Services token verification
+router.post('/google', authController.googleAuth);
+
 // GET /api/auth/me  — protected
 router.get('/me', protect, authController.getMe);
 

@@ -22,6 +22,8 @@ const NOTIFICATION_TYPES = [
   'admin_consultation_message',
   'admin_deposit_submitted',
   'admin_new_review',
+  // Referral types
+  'referral_commission_eligible',
 ];
 
 const notificationSchema = new mongoose.Schema(

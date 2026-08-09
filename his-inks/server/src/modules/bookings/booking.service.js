@@ -6,6 +6,12 @@ const {
   notifyBookingCompleted,
   notifyAdminNewBooking,
 } = require('../notifications/notification.service');
+// Lazy-loaded to avoid circular dependency issues at startup
+let _referralService = null;
+function getReferralService() {
+  if (!_referralService) _referralService = require('../referrals/referral.service');
+  return _referralService;
+}
 
 // ── Create booking (authenticated customers only) ─────────────────────────────
 async function createBooking(data, userId = null) {
@@ -115,6 +121,15 @@ async function updateBookingStatus(id, status, notes) {
     } else if (status === 'completed') {
       notifyBookingCompleted(booking.userId, booking.preferredDate);
     }
+  }
+
+  // ── Referral eligibility / cancellation hooks ─────────────────────────────
+  if (status === 'completed') {
+    // Fire-and-forget: check if this booking makes a referral eligible
+    getReferralService().processReferralEligibility(booking._id);
+  } else if (status === 'cancelled') {
+    // If a pending/eligible referral is linked to this booking, cancel it
+    getReferralService().cancelReferralForBooking(booking._id);
   }
 
   // ── Option A: auto-cancel same-day pending bookings ───────────────────────

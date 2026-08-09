@@ -15,6 +15,8 @@ const reviewAdminRouter   = require('./modules/reviews/review.admin.routes');
 const notificationRouter  = require('./modules/notifications/notification.routes');
 const messageRouter       = require('./modules/messages/message.routes');
 const reportsRouter       = require('./modules/reports/reports.routes');
+const referralRouter      = require('./modules/referrals/referral.routes');
+const referralAdminRouter = require('./modules/referrals/referral.admin.routes');
 
 const app = express();
 
@@ -52,6 +54,8 @@ app.use('/api/admin/reviews',  reviewAdminRouter);
 app.use('/api/notifications',  notificationRouter);
 app.use('/api/messages',       messageRouter);
 app.use('/api/admin/reports',  reportsRouter);
+app.use('/api/referrals',      referralRouter);
+app.use('/api/admin/referrals', referralAdminRouter);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {

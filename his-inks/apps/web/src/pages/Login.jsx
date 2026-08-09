@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { initGoogleButton } from '../services/googleAuth';
 
 function Login() {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || null;
@@ -12,7 +13,37 @@ function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const googleBtnRef = useRef(null);
+
+  // ── Google Identity Services initialisation ────────────────────────────────
+  useEffect(() => {
+    const cleanup = initGoogleButton(
+      googleBtnRef.current,
+      handleGoogleCredential,
+      'signin_with',
+    );
+    return cleanup;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleGoogleCredential({ credential }) {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      const authedUser = await googleLogin(credential);
+      if (from) {
+        navigate(from, { state: { tattooRef } });
+      } else {
+        navigate(authedUser.role === 'admin' ? '/admin' : '/');
+      }
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
 
   const update = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
@@ -123,6 +154,29 @@ function Login() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+
+        {/* ── Google sign-in ─────────────────────────────────────────────── */}
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-white/30 text-xs tracking-widest uppercase">or</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            {/* Google renders its own button inside this div */}
+            <div
+              ref={googleBtnRef}
+              className="w-full"
+              aria-label="Sign in with Google"
+            />
+
+            {/* Fallback button shown while GIS script loads or if render fails */}
+            {googleLoading && (
+              <p className="text-center text-white/40 text-xs mt-2">Signing in with Google…</p>
+            )}
+          </>
+        )}
 
         <p className="text-center text-white/40 text-sm mt-8">
           Don&apos;t have an account?{' '}

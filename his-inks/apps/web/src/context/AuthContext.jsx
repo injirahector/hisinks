@@ -28,6 +28,7 @@ export function AuthProvider({ children }) {
 
   // ── register ─────────────────────────────────────────────────────────────────
   async function register(formData) {
+    // formData may include referralCode — pass it through to the backend as-is
     const res = await api.post('/auth/register', formData);
     const { user: newUser, token } = res.data.data;
     localStorage.setItem(TOKEN_KEY, token);
@@ -56,6 +57,21 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // ── googleLogin ───────────────────────────────────────────────────────────────
+  // Called after Google Identity Services returns a credential (ID token).
+  // Sends it to our backend which verifies it and returns our own JWT.
+  // referralCode is optional — passed when coming from /register?ref=CODE.
+  async function googleLogin(credential, referralCode) {
+    const res = await api.post('/auth/google', {
+      credential,
+      referralCode: referralCode || undefined,
+    });
+    const { user: authedUser, token } = res.data.data;
+    localStorage.setItem(TOKEN_KEY, token);
+    setUser(authedUser);
+    return authedUser;
+  }
+
   const value = {
     user,
     loading,
@@ -63,6 +79,7 @@ export function AuthProvider({ children }) {
     register,
     login,
     logout,
+    googleLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -16,8 +16,8 @@ async function register(req, res, next) {
       return res.status(422).json({ success: false, errors });
     }
 
-    const { firstName, lastName, email, phone, password } = req.body;
-    const result = await authService.register({ firstName, lastName, email, phone, password });
+    const { firstName, lastName, email, phone, password, referralCode } = req.body;
+    const result = await authService.register({ firstName, lastName, email, phone, password, referralCode });
 
     // Set httpOnly cookie alongside the JSON token so both web and mobile are covered
     res.cookie('token', result.token, COOKIE_OPTIONS);
@@ -78,4 +78,32 @@ function logout(req, res) {
   return res.status(200).json({ success: true, message: 'Logged out successfully.' });
 }
 
-module.exports = { register, login, getMe, logout };
+// ── POST /api/auth/google ─────────────────────────────────────────────────────
+// Accepts a Google Identity Services credential (ID token) from the frontend,
+// verifies it server-side, then finds or creates a customer account.
+async function googleAuth(req, res, next) {
+  try {
+    const { credential, referralCode } = req.body;
+
+    if (!credential) {
+      return res.status(422).json({
+        success: false,
+        message: 'Google credential is required.',
+      });
+    }
+
+    const result = await authService.googleAuth({ credential, referralCode });
+
+    res.cookie('token', result.token, COOKIE_OPTIONS);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Authenticated with Google.',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, getMe, logout, googleAuth };

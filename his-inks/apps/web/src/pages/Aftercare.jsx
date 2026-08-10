@@ -374,8 +374,7 @@ export default function Aftercare() {
             </div>
 
             <p className="text-white/60 text-sm leading-relaxed mb-4">
-              If you notice unusual or worsening symptoms, seek advice from a qualified healthcare
-              professional. Do not ignore symptoms that appear to be getting worse rather than better.
+              If you notice unusual or worsening symptoms, seek advice. Do not ignore symptoms that appear to be getting worse rather than better.
             </p>
 
             <p className="text-white/45 text-sm mb-5">Consider seeking professional advice if you experience:</p>

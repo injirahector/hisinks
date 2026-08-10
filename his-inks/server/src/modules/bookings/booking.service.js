@@ -6,6 +6,7 @@ const {
   notifyBookingCompleted,
   notifyAdminNewBooking,
 } = require('../notifications/notification.service');
+const { emitToUser, emitToAdmins } = require('../../socket/socket');
 // Lazy-loaded to avoid circular dependency issues at startup
 let _referralService = null;
 function getReferralService() {
@@ -57,6 +58,15 @@ async function createBooking(data, userId = null) {
 
   // Notify admin of the new booking
   notifyAdminNewBooking(booking.customerName, booking.tattooIdea);
+
+  // ── Real-time: push new booking event to admin(s) ─────────────────────────
+  emitToAdmins('booking.created', {
+    bookingId:    booking._id,
+    customerName: booking.customerName,
+    tattooIdea:   booking.tattooIdea,
+    status:       booking.status,
+    createdAt:    booking.createdAt,
+  });
 
   return booking;
 }
@@ -173,8 +183,28 @@ async function updateBookingStatus(id, status, notes) {
         b.preferredDate,
         'Another booking was confirmed for this date.'
       );
+      // Real-time: notify each auto-cancelled customer
+      emitToUser(b.userId, 'booking.status_changed', {
+        bookingId: b._id,
+        status:    'cancelled',
+        updatedAt: new Date(),
+      });
     }
   }
+
+  // ── Real-time: push status change to the booking owner and to admins ──────
+  if (booking.userId) {
+    emitToUser(booking.userId, 'booking.status_changed', {
+      bookingId: booking._id,
+      status:    booking.status,
+      updatedAt: booking.updatedAt,
+    });
+  }
+  emitToAdmins('booking.updated', {
+    bookingId: booking._id,
+    status:    booking.status,
+    updatedAt: booking.updatedAt,
+  });
 
   return booking;
 }

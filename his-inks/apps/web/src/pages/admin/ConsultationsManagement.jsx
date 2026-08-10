@@ -10,6 +10,87 @@ const STATUS_BADGE = {
   closed:          'text-white/30 bg-white/5 border-white/10',
 };
 
+// ── Image preview modal ───────────────────────────────────────────────────────
+function ImagePreviewModal({ src, onClose }) {
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const filename = src.split('/').pop().split('?')[0] || 'image';
+
+  const handleDownload = async () => {
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: open in new tab so admin can save manually
+      window.open(src, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Image preview"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-3xl w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-4 py-3 bg-[#111] border border-white/10 border-b-0">
+          <p className="text-white/50 text-xs truncate max-w-xs">{filename}</p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-brand-accent/50
+                         text-brand-accent hover:bg-brand-accent/10 transition-colors"
+              aria-label="Download image"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-white/40 hover:text-white transition-colors"
+              aria-label="Close preview"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        {/* Image */}
+        <div className="bg-[#0B0B0B] border border-white/10 flex items-center justify-center p-4 max-h-[80vh] overflow-auto">
+          <img
+            src={src}
+            alt="Full size preview"
+            className="max-w-full max-h-[72vh] object-contain"
+          />
+        </div>
+        <p className="text-white/20 text-[10px] text-center py-2">
+          Click outside or press Esc to close
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ConsultationsManagement() {
   const [consultations, setConsultations] = useState([]);
   const [total, setTotal]                 = useState(0);
@@ -23,6 +104,7 @@ function ConsultationsManagement() {
   const [agreeErr, setAgreeErr]           = useState('');
   const [actionMsg, setActionMsg]         = useState('');
   const bottomRef = useRef(null);
+  const [previewSrc, setPreviewSrc]       = useState('');
 
   // Load list
   const loadList = async (status = filter) => {
@@ -133,6 +215,7 @@ function ConsultationsManagement() {
   const canAct = selected && selected.status !== 'booked' && selected.status !== 'closed';
 
   return (
+    <>
     <div className="flex h-screen overflow-hidden">
 
       {/* ── Left: list panel ── */}
@@ -245,19 +328,36 @@ function ConsultationsManagement() {
               )}
               {selected.messages.map(msg => {
                 const isAdmin = msg.sender === 'admin';
-                // Render image URLs as <img> tags
+                // Render image URLs as clickable thumbnails; plain lines as text
                 const renderText = (text) =>
                   text.split('\n').map((line, i) => {
-                    const isUrl = /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)/i.test(line.trim()) ||
-                                  /^https?:\/\/res\.cloudinary\.com\/.+\/image\//i.test(line.trim());
+                    const trimmed = line.trim();
+                    const isUrl = /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)/i.test(trimmed) ||
+                                  /^https?:\/\/res\.cloudinary\.com\/.+\/image\//i.test(trimmed);
                     if (isUrl) {
                       return (
-                        <img
-                          key={i}
-                          src={line.trim()}
-                          alt="Reference"
-                          className="mt-2 max-w-[200px] border border-white/10 object-contain"
-                        />
+                        <div key={i} className="mt-2 group relative inline-block">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewSrc(trimmed)}
+                            className="block border border-white/10 hover:border-brand-accent/50
+                                       transition-colors focus:outline-none focus-visible:ring-2
+                                       focus-visible:ring-brand-accent"
+                            aria-label="Preview attached image"
+                          >
+                            <img
+                              src={trimmed}
+                              alt="Attachment"
+                              className="max-w-[180px] max-h-[180px] object-cover group-hover:opacity-80 transition-opacity"
+                            />
+                            <span className="absolute inset-0 flex items-center justify-center
+                                             opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
+                              <span className="text-white text-[10px] px-2 py-1 bg-black/60 border border-white/20">
+                                Preview / Download
+                              </span>
+                            </span>
+                          </button>
+                        </div>
                       );
                     }
                     return <p key={i} className={i > 0 ? 'mt-0.5' : ''}>{line}</p>;
@@ -425,6 +525,12 @@ function ConsultationsManagement() {
         )}
       </div>
     </div>
+
+      {/* ── Image preview modal ── */}
+      {previewSrc && (
+        <ImagePreviewModal src={previewSrc} onClose={() => setPreviewSrc('')} />
+      )}
+    </>
   );
 }
 

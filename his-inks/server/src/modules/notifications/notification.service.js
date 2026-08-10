@@ -1,4 +1,5 @@
 const Notification = require('./notification.model');
+const { emitToUser } = require('../../socket/socket');
 
 // Lazy-loaded to avoid circular-dependency issues at module init time
 let _User = null;
@@ -39,7 +40,17 @@ function forbidden(msg) {
 // safer than rolling back the main operation because of a notification error.
 async function createNotification({ userId, type, title, message, link = null }) {
   try {
-    await Notification.create({ userId, type, title, message, link });
+    const notification = await Notification.create({ userId, type, title, message, link });
+    // Real-time: push to the user immediately if they are connected
+    emitToUser(userId, 'notification.created', {
+      _id:       notification._id,
+      type:      notification.type,
+      title:     notification.title,
+      message:   notification.message,
+      link:      notification.link,
+      read:      notification.read,
+      createdAt: notification.createdAt,
+    });
   } catch (err) {
     // Log but never propagate so the caller's transaction isn't affected
     console.error('[NotificationService] Failed to create notification:', err.message);

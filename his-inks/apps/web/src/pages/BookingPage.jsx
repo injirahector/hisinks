@@ -29,6 +29,12 @@ const inputClass = (err) =>
    focus:outline-none transition-colors duration-200 text-sm
    ${err ? 'border-red-500/60 focus:border-red-500' : 'border-white/10 focus:border-brand-accent'}`;
 
+const selectClass = (err) =>
+  `w-full bg-[#111] border px-4 py-3 text-white
+   focus:outline-none transition-colors duration-200 text-sm
+   appearance-none cursor-pointer
+   ${err ? 'border-red-500/60 focus:border-red-500' : 'border-white/10 focus:border-brand-accent'}`;
+
 const labelClass = 'block text-white/50 text-xs tracking-widest uppercase mb-2';
 
 // ── Slot picker sub-component ─────────────────────────────────────────────────
@@ -510,16 +516,23 @@ function BookingPage() {
                   <label className={labelClass}>
                     Booking Location <span className="text-brand-accent">*</span>
                   </label>
-                  <select
-                    value={form.bookingLocation}
-                    onChange={update('bookingLocation')}
-                    required
-                    className={inputClass(errors.bookingLocation) + ' bg-[#0B0B0B]'}
-                  >
-                    <option value="">Select location…</option>
-                    <option value="studio">Come to Studio</option>
-                    <option value="house_call">House Call</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={form.bookingLocation}
+                      onChange={update('bookingLocation')}
+                      required
+                      className={selectClass(errors.bookingLocation)}
+                    >
+                      <option value="">Select location…</option>
+                      <option value="studio">Come to Studio</option>
+                      <option value="house_call">House Call</option>
+                    </select>
+                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center" aria-hidden="true">
+                      <svg className="w-4 h-4 text-white/30" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </span>
+                  </div>
                   {errors.bookingLocation && (
                     <p className="mt-1 text-red-400 text-xs">{errors.bookingLocation}</p>
                   )}
@@ -552,20 +565,34 @@ function BookingPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div data-error={errors.placement || undefined}>
                     <label className={labelClass}>Placement <span className="text-brand-accent">*</span></label>
-                    <select value={form.placement} onChange={update('placement')} required
-                      className={inputClass(errors.placement) + ' bg-[#0B0B0B]'}>
-                      <option value="">Select placement…</option>
-                      {PLACEMENTS.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select value={form.placement} onChange={update('placement')} required
+                        className={selectClass(errors.placement)}>
+                        <option value="">Select placement…</option>
+                        {PLACEMENTS.map((p) => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                      <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center" aria-hidden="true">
+                        <svg className="w-4 h-4 text-white/30" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </div>
                     {errors.placement && <p className="mt-1 text-red-400 text-xs">{errors.placement}</p>}
                   </div>
                   <div data-error={errors.size || undefined}>
                     <label className={labelClass}>Size <span className="text-brand-accent">*</span></label>
-                    <select value={form.size} onChange={update('size')} required
-                      className={inputClass(errors.size) + ' bg-[#0B0B0B]'}>
-                      <option value="">Select size…</option>
-                      {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select value={form.size} onChange={update('size')} required
+                        className={selectClass(errors.size)}>
+                        <option value="">Select size…</option>
+                        {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center" aria-hidden="true">
+                        <svg className="w-4 h-4 text-white/30" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </div>
                     {errors.size && <p className="mt-1 text-red-400 text-xs">{errors.size}</p>}
                   </div>
                 </div>

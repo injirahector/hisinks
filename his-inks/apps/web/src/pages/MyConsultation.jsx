@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-
 const STATUS_LABEL = {
   open:            { text: 'Open',            color: 'text-blue-400',     bg: 'bg-blue-400/10 border-blue-400/30' },
   agreed:          { text: 'Agreed',          color: 'text-green-400',    bg: 'bg-green-400/10 border-green-400/30' },
@@ -29,6 +28,46 @@ function MyConsultation() {
   const [text, setText]     = useState('');
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState('');
+
+  // Image attachment state
+  const consultFileRef                  = useRef(null);
+  const [attachFile, setAttachFile]     = useState(null);
+  const [attachPreview, setAttachPreview] = useState('');
+  const [attachErr, setAttachErr]       = useState('');
+  const [uploading, setUploading]       = useState(false);
+
+  const handleAttachChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachErr('');
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setAttachErr('Only JPG, PNG, or WebP images are allowed.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAttachErr('Image must be under 5 MB.');
+      return;
+    }
+    setAttachFile(file);
+    setAttachPreview(URL.createObjectURL(file));
+  };
+
+  const clearAttach = () => {
+    setAttachFile(null);
+    setAttachPreview('');
+    setAttachErr('');
+    if (consultFileRef.current) consultFileRef.current.value = '';
+  };
+
+  const uploadAttach = async (file) => {
+    const data = new FormData();
+    data.append('image', file);
+    const res = await api.post('/uploads/image', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data.data.url;
+  };
 
   // Deposit state
   const [mpesaRef, setMpesaRef]             = useState('');
@@ -74,25 +113,31 @@ function MyConsultation() {
   // Send message — creates the consultation on the very first send
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() && !attachFile) return;
     setSending(true);
     setSendErr('');
     try {
-      // Send tattooRef if:
-      // 1. No consultation exists yet (will be created on this message), OR
-      // 2. Existing consultation has no messages yet, OR
-      // 3. Existing consultation already has a tattooRef saved (already handled server-side — safe to re-send)
+      // Upload image attachment if present
+      let imageUrl = '';
+      if (attachFile) {
+        setUploading(true);
+        imageUrl = await uploadAttach(attachFile);
+        setUploading(false);
+      }
+
       const isNewThread = !consultation ||
         consultation === null ||
         (consultation.messages?.length === 0 && !consultation.tattooRef?.image);
-      const payload = { text };
+      const payload = { text: imageUrl ? `${text}\n${imageUrl}`.trim() : text };
       if (isNewThread && routeTattooRef) {
         payload.tattooRef = routeTattooRef;
       }
       const res = await api.post('/consultations/my/messages', payload);
       setConsultation(res.data.data.consultation);
       setText('');
+      clearAttach();
     } catch (err) {
+      setUploading(false);
       setSendErr(err.message || 'Failed to send message.');
     } finally {
       setSending(false);
@@ -207,6 +252,27 @@ function MyConsultation() {
               </div>
             </div>
 
+            {/* Image preview strip */}
+            {attachPreview && (
+              <div className="border-t border-white/8 px-4 pt-3 pb-0 flex items-center gap-3">
+                <div className="relative flex-shrink-0">
+                  <img src={attachPreview} alt="Attachment preview"
+                    className="w-14 h-14 object-cover border border-white/15" />
+                  <button
+                    type="button"
+                    onClick={clearAttach}
+                    aria-label="Remove attached image"
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500
+                               text-white flex items-center justify-center text-[10px] leading-none"
+                  >✕</button>
+                </div>
+                <p className="text-white/30 text-xs truncate">{attachFile?.name}</p>
+              </div>
+            )}
+            {attachErr && (
+              <p className="px-4 pt-2 text-red-400 text-xs">{attachErr}</p>
+            )}
+
             <form onSubmit={handleSend} className="border-t border-white/8 p-4 flex gap-3">
               <textarea
                 value={text}
@@ -219,14 +285,34 @@ function MyConsultation() {
                            placeholder-white/20 focus:outline-none focus:border-brand-accent
                            resize-none transition-colors"
               />
+              {/* Image attach button */}
+              <button
+                type="button"
+                onClick={() => consultFileRef.current?.click()}
+                aria-label="Attach an image"
+                className="self-end p-2.5 border border-white/10 text-white/40 hover:text-brand-accent
+                           hover:border-brand-accent/40 transition-colors flex-shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                </svg>
+              </button>
               <button
                 type="submit"
-                disabled={sending || !text.trim()}
+                disabled={sending || uploading || (!text.trim() && !attachFile)}
                 className="btn-primary px-5 py-2 text-xs self-end disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
               >
-                {sending ? 'Sending…' : 'Send'}
+                {uploading ? 'Uploading…' : sending ? 'Sending…' : 'Send'}
               </button>
             </form>
+            <input
+              ref={consultFileRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={handleAttachChange}
+              className="hidden"
+            />
           </div>
 
           {sendErr && <p className="mt-3 text-red-400 text-xs">{sendErr}</p>}
@@ -478,25 +564,67 @@ function MyConsultation() {
           </div>
 
           {canSend ? (
-            <form onSubmit={handleSend} className="border-t border-white/8 p-4 flex gap-3">
-              <textarea
-                value={text}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
-                placeholder="Type your message… (Enter to send, Shift+Enter for new line)"
-                rows={2}
-                className="flex-1 bg-white/5 border border-white/10 px-4 py-2.5 text-white text-sm
-                           placeholder-white/20 focus:outline-none focus:border-brand-accent
-                           resize-none transition-colors"
+            <>
+              {/* Image attachment preview strip */}
+              {attachPreview && (
+                <div className="border-t border-white/8 px-4 pt-3 pb-0 flex items-center gap-3">
+                  <div className="relative flex-shrink-0">
+                    <img src={attachPreview} alt="Attachment preview"
+                      className="w-14 h-14 object-cover border border-white/15" />
+                    <button
+                      type="button"
+                      onClick={clearAttach}
+                      aria-label="Remove attached image"
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500
+                                 text-white flex items-center justify-center text-[10px] leading-none"
+                    >✕</button>
+                  </div>
+                  <p className="text-white/30 text-xs truncate">{attachFile?.name}</p>
+                </div>
+              )}
+              {attachErr && (
+                <p className="px-4 pt-2 text-red-400 text-xs">{attachErr}</p>
+              )}
+              <form onSubmit={handleSend} className="border-t border-white/8 p-4 flex gap-3">
+                <textarea
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
+                  placeholder="Type your message… (Enter to send, Shift+Enter for new line)"
+                  rows={2}
+                  className="flex-1 bg-white/5 border border-white/10 px-4 py-2.5 text-white text-sm
+                             placeholder-white/20 focus:outline-none focus:border-brand-accent
+                             resize-none transition-colors"
+                />
+                {/* Image attach button */}
+                <button
+                  type="button"
+                  onClick={() => consultFileRef.current?.click()}
+                  aria-label="Attach an image"
+                  className="self-end p-2.5 border border-white/10 text-white/40 hover:text-brand-accent
+                             hover:border-brand-accent/40 transition-colors flex-shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
+                </button>
+                <button
+                  type="submit"
+                  disabled={sending || uploading || (!text.trim() && !attachFile)}
+                  className="btn-primary px-5 py-2 text-xs self-end disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                >
+                  {uploading ? 'Uploading…' : sending ? 'Sending…' : 'Send'}
+                </button>
+              </form>
+              <input
+                ref={consultFileRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleAttachChange}
+                className="hidden"
               />
-              <button
-                type="submit"
-                disabled={sending || !text.trim()}
-                className="btn-primary px-5 py-2 text-xs self-end disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-              >
-                {sending ? 'Sending…' : 'Send'}
-              </button>
-            </form>
+            </>
           ) : (
             <div className="border-t border-white/8 px-5 py-3 text-white/25 text-xs text-center">
               {status === 'deposit_paid'

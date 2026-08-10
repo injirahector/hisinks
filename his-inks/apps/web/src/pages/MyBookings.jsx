@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import ImageLightbox from '../components/ImageLightbox';
 import ReviewModal from '../components/ReviewModal';
+import { getSocket } from '../services/socket';
+import { useAuth } from '../context/AuthContext';
 
 const STATUS_STYLES = {
   pending:   { text: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/30', label: 'Pending Review' },
@@ -223,6 +225,7 @@ function BookingCard({ booking, reviewed, onRate }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 function MyBookings() {
+  const { user } = useAuth();
   const [bookings,      setBookings]      = useState([]);
   const [reviewed,      setReviewed]      = useState(new Set());
   const [loading,       setLoading]       = useState(true);
@@ -259,6 +262,42 @@ function MyBookings() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  // ── Socket: update booking status in real-time ──────────────────────────
+  useEffect(() => {
+    // user is required — no socket events if not logged in
+    if (!user) return;
+
+    const handler = ({ bookingId, status }) => {
+      setBookings((prev) =>
+        prev.map((b) =>
+          b._id === bookingId ? { ...b, status } : b
+        )
+      );
+    };
+
+    // The socket may not be connected yet at render time (it's async).
+    // Retry attaching for up to 3 seconds, matching NotificationContext pattern.
+    const attachListener = () => {
+      const socket = getSocket();
+      if (!socket) return null;
+      socket.on('booking.status_changed', handler);
+      return () => socket.off('booking.status_changed', handler);
+    };
+
+    let cleanup = attachListener();
+    let attempts = 0;
+    const retryTimer = setInterval(() => {
+      if (cleanup || attempts >= 6) { clearInterval(retryTimer); return; }
+      cleanup = attachListener();
+      attempts++;
+    }, 500);
+
+    return () => {
+      clearInterval(retryTimer);
+      if (cleanup) cleanup();
+    };
+  }, [user]); // re-run when user changes (login/logout)
 
   // Called when a review is successfully submitted via the modal
   const handleReviewSaved = (review) => {

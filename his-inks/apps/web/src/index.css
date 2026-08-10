@@ -71,3 +71,13 @@
 .animate-scroll-line {
   animation: scrollLine 2s ease-in-out infinite;
 }
+
+/* ── Select / dropdown dark theme ───────────────────────────────────────── */
+select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: #111111;
+  color: #ffffff;
+}

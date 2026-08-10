@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ImageLightbox from '../components/ImageLightbox';
+import { getSocket } from '../services/socket';
 
 function Messages() {
   const { user, loading: authLoading } = useAuth();
@@ -45,6 +46,50 @@ function Messages() {
       api.patch('/messages/my/read').catch(() => {});
     }
   }, [thread?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Socket: receive admin replies in real-time ───────────────────────────
+  useEffect(() => {
+    if (!user) return;
+
+    const handler = ({ message }) => {
+      // Only append messages sent by admin (we already have our own via REST response)
+      if (message.sender !== 'admin') return;
+      setThread((prev) => {
+        if (!prev) return prev;
+        // Deduplicate by _id
+        if (prev.messages.some((m) => m._id === message._id)) return prev;
+        return {
+          ...prev,
+          messages: [...prev.messages, message],
+          unreadByCustomer: (prev.unreadByCustomer ?? 0) + 1,
+        };
+      });
+      // Mark as read immediately since the page is open
+      api.patch('/messages/my/read').catch(() => {});
+    };
+
+    // The socket may not be connected yet at render time (it's async).
+    // Retry attaching for up to 3 seconds, matching NotificationContext pattern.
+    const attachListener = () => {
+      const socket = getSocket();
+      if (!socket) return null;
+      socket.on('message.created', handler);
+      return () => socket.off('message.created', handler);
+    };
+
+    let cleanup = attachListener();
+    let attempts = 0;
+    const retryTimer = setInterval(() => {
+      if (cleanup || attempts >= 6) { clearInterval(retryTimer); return; }
+      cleanup = attachListener();
+      attempts++;
+    }, 500);
+
+    return () => {
+      clearInterval(retryTimer);
+      if (cleanup) cleanup();
+    };
+  }, [user]);
 
   // Auto-scroll to bottom when messages arrive
   useEffect(() => {

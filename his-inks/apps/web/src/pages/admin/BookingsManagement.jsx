@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import ImageLightbox from '../../components/ImageLightbox';
+import { getSocket } from '../../services/socket';
 
 const STATUS_OPTIONS = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
 
@@ -201,6 +202,45 @@ function BookingsManagement() {
   };
 
   useEffect(load, []);
+
+  // ── Socket: real-time booking updates ───────────────────────────────────
+  useEffect(() => {
+    // New booking from a customer — refetch full list for all fields
+    const onCreated = () => { load(); };
+
+    // Admin changed a status elsewhere (another tab/session) — update in-place
+    const onUpdated = ({ bookingId, status }) => {
+      setBookings((prev) =>
+        prev.map((b) => (b._id === bookingId ? { ...b, status } : b))
+      );
+    };
+
+    // The socket may not be connected yet at render time (it's async).
+    // Retry attaching for up to 3 seconds, matching NotificationContext pattern.
+    const attachListener = () => {
+      const socket = getSocket();
+      if (!socket) return null;
+      socket.on('booking.created', onCreated);
+      socket.on('booking.updated', onUpdated);
+      return () => {
+        socket.off('booking.created', onCreated);
+        socket.off('booking.updated', onUpdated);
+      };
+    };
+
+    let cleanup = attachListener();
+    let attempts = 0;
+    const retryTimer = setInterval(() => {
+      if (cleanup || attempts >= 6) { clearInterval(retryTimer); return; }
+      cleanup = attachListener();
+      attempts++;
+    }, 500);
+
+    return () => {
+      clearInterval(retryTimer);
+      if (cleanup) cleanup();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = filter === 'all' ? bookings : bookings.filter((b) => b.status === filter);
 

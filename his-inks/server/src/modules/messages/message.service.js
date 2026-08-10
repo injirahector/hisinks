@@ -1,4 +1,5 @@
 const MessageThread = require('./message.model');
+const { emitToUser, emitToAdmins } = require('../../socket/socket');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function notFound(msg) {
@@ -37,6 +38,23 @@ async function customerSendMessage(user, text, image = null) {
   thread.lastMessageAt  = new Date();
 
   await thread.save();
+
+  // Real-time: push the new message to all connected admins
+  const lastMsg = thread.messages[thread.messages.length - 1];
+  emitToAdmins('message.created', {
+    threadId:     thread._id,
+    userId:       thread.userId,
+    customerName: thread.customerName,
+    message: {
+      _id:       lastMsg._id,
+      sender:    lastMsg.sender,
+      text:      lastMsg.text,
+      image:     lastMsg.image,
+      createdAt: lastMsg.createdAt,
+    },
+    unreadByAdmin: thread.unreadByAdmin,
+  });
+
   return thread;
 }
 
@@ -94,6 +112,21 @@ async function adminSendMessage(threadId, text, image = null) {
   thread.lastMessageAt     = new Date();
 
   await thread.save();
+
+  // Real-time: push the new message to the customer who owns this thread
+  const lastMsg = thread.messages[thread.messages.length - 1];
+  emitToUser(thread.userId, 'message.created', {
+    threadId: thread._id,
+    message: {
+      _id:       lastMsg._id,
+      sender:    lastMsg.sender,
+      text:      lastMsg.text,
+      image:     lastMsg.image,
+      createdAt: lastMsg.createdAt,
+    },
+    unreadByCustomer: thread.unreadByCustomer,
+  });
+
   return thread;
 }
 

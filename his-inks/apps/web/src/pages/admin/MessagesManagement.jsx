@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import ImageLightbox from '../../components/ImageLightbox';
+import { getSocket } from '../../services/socket';
 
 const fmtTime = (ts) =>
   new Date(ts).toLocaleString('en-GB', {
@@ -114,6 +115,70 @@ function MessagesManagement() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [thread?.messages?.length]);
+
+  // ── Socket: receive customer messages in real-time ──────────────────────
+  useEffect(() => {
+    const handler = ({ threadId, customerName, message, unreadByAdmin }) => {
+      // 1. If this thread is currently open, append the message directly
+      setThread((prev) => {
+        if (!prev || prev._id !== threadId) return prev;
+        // Deduplicate by _id
+        if (prev.messages.some((m) => m._id === message._id)) return prev;
+        // Mark as read immediately since admin has it open
+        api.patch(`/messages/${threadId}/read`).catch(() => {});
+        return { ...prev, messages: [...prev.messages, message], unreadByAdmin: 0 };
+      });
+
+      // 2. Update (or insert) the thread in the sidebar list
+      setThreads((prev) => {
+        const exists = prev.some((t) => t._id === threadId);
+        if (exists) {
+          return prev.map((t) => {
+            if (t._id !== threadId) return t;
+            // If the thread is currently open, admin already sees it — don't bump badge
+            const isOpen = t._id === threadId;
+            return {
+              ...t,
+              lastMessageAt: message.createdAt,
+              unreadByAdmin: isOpen ? 0 : (t.unreadByAdmin ?? 0) + 1,
+            };
+          });
+        }
+        // New thread — add a minimal entry at the top of the list
+        return [
+          {
+            _id: threadId,
+            customerName,
+            lastMessageAt: message.createdAt,
+            unreadByAdmin: 1,
+          },
+          ...prev,
+        ];
+      });
+    };
+
+    // The socket may not be connected yet at render time (it's async).
+    // Retry attaching for up to 3 seconds, matching NotificationContext pattern.
+    const attachListener = () => {
+      const socket = getSocket();
+      if (!socket) return null;
+      socket.on('message.created', handler);
+      return () => socket.off('message.created', handler);
+    };
+
+    let cleanup = attachListener();
+    let attempts = 0;
+    const retryTimer = setInterval(() => {
+      if (cleanup || attempts >= 6) { clearInterval(retryTimer); return; }
+      cleanup = attachListener();
+      attempts++;
+    }, 500);
+
+    return () => {
+      clearInterval(retryTimer);
+      if (cleanup) cleanup();
+    };
+  }, []);
 
   // ── File picker ─────────────────────────────────────────────────────────────
   const handleFileChange = (e) => {

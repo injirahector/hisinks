@@ -26,6 +26,8 @@ import ReportsAnalytics from '../pages/admin/ReportsAnalytics';
 import CustomersManagement from '../pages/admin/CustomersManagement';
 import ReferralsManagement from '../pages/admin/ReferralsManagement';
 import MyReferrals from '../pages/MyReferrals';
+import ForgotPassword from '../pages/ForgotPassword';
+import ResetPassword from '../pages/ResetPassword';
 
 function AppRoutes() {
   return (
@@ -45,6 +47,8 @@ function AppRoutes() {
         <Route path="/dashboard"         element={<CustomerDashboard />} />
         <Route path="/login"             element={<Login />} />
         <Route path="/register"          element={<Register />} />
+        <Route path="/forgot-password"   element={<ForgotPassword />} />
+        <Route path="/reset-password"    element={<ResetPassword />} />
       </Route>
 
       {/* ── Authenticated customer routes ── */}

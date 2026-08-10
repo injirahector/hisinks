@@ -21,6 +21,7 @@ const EMPTY = {
   placement: '',
   size: '',
   referenceImage: '',
+  bookingLocation: '',
 };
 
 const inputClass = (err) =>
@@ -262,14 +263,15 @@ function BookingPage() {
   // ── Client-side validation ───────────────────────────────────────────────────
   const validate = () => {
     const errs = {};
-    if (!form.customerName.trim()) errs.customerName = 'Full name is required.';
-    if (!form.phone.trim())        errs.phone        = 'Phone number is required.';
-    if (!form.tattooIdea.trim())   errs.tattooIdea   = 'Tattoo idea is required.';
-    if (!form.description.trim())  errs.description  = 'Description is required.';
-    if (!form.placement)           errs.placement    = 'Placement is required.';
-    if (!form.size)                errs.size         = 'Size is required.';
-    if (!selectedDate)             errs.schedule     = 'Please select a date and time.';
-    else if (!selectedSlot)        errs.schedule     = 'Please select a time slot.';
+    if (!form.customerName.trim())    errs.customerName    = 'Full name is required.';
+    if (!form.phone.trim())           errs.phone           = 'Phone number is required.';
+    if (!form.bookingLocation)        errs.bookingLocation = 'Please select a booking location.';
+    if (!form.tattooIdea.trim())      errs.tattooIdea      = 'Tattoo idea is required.';
+    if (!form.description.trim())     errs.description     = 'Description is required.';
+    if (!form.placement)              errs.placement       = 'Placement is required.';
+    if (!form.size)                   errs.size            = 'Size is required.';
+    if (!selectedDate)                errs.schedule        = 'Please select a date and time.';
+    else if (!selectedSlot)           errs.schedule        = 'Please select a time slot.';
     return errs;
   };
 
@@ -501,6 +503,26 @@ function BookingPage() {
                   <input type="email" value={form.email} onChange={update('email')}
                     placeholder="you@example.com" className={inputClass(errors.email)} />
                   {errors.email && <p className="mt-1 text-red-400 text-xs">{errors.email}</p>}
+                </div>
+
+                {/* ── Booking Location ── */}
+                <div data-error={errors.bookingLocation || undefined}>
+                  <label className={labelClass}>
+                    Booking Location <span className="text-brand-accent">*</span>
+                  </label>
+                  <select
+                    value={form.bookingLocation}
+                    onChange={update('bookingLocation')}
+                    required
+                    className={inputClass(errors.bookingLocation) + ' bg-[#0B0B0B]'}
+                  >
+                    <option value="">Select location…</option>
+                    <option value="studio">Come to Studio</option>
+                    <option value="house_call">House Call</option>
+                  </select>
+                  {errors.bookingLocation && (
+                    <p className="mt-1 text-red-400 text-xs">{errors.bookingLocation}</p>
+                  )}
                 </div>
               </div>
             </div>

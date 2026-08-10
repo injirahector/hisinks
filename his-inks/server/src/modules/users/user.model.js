@@ -111,6 +111,22 @@ const userSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+
+    // ── Password reset fields ──────────────────────────────────────────────
+    // SHA-256 hash of the one-time reset token.
+    // The raw token is ONLY sent to the user's email — never stored.
+    // select: false so it is never returned in normal queries.
+    passwordResetToken: {
+      type: String,
+      select: false,
+    },
+
+    // Expiry timestamp for the reset token.
+    // Set to Date.now() + PASSWORD_RESET_EXPIRES_MINUTES (default 15 min).
+    passwordResetExpires: {
+      type: Date,
+      select: false,
+    },
   },
   {
     timestamps: true,

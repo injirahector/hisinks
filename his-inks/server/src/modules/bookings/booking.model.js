@@ -75,6 +75,19 @@ const bookingSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+
+    // Where the tattoo appointment will take place.
+    // 'studio'     — customer comes to the studio
+    // 'house_call' — artist travels to the customer
+    // Optional (not required) so existing bookings without this field remain valid.
+    bookingLocation: {
+      type: String,
+      enum: {
+        values: ['studio', 'house_call'],
+        message: "Booking location must be 'studio' or 'house_call'",
+      },
+      default: null,
+    },
   },
   {
     timestamps: true,

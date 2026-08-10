@@ -1,7 +1,8 @@
 const validator = require('validator');
 
-const VALID_SIZES = ['Small', 'Medium', 'Large', 'Extra Large', 'Full Sleeve', 'Half Sleeve'];
-const VALID_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
+const VALID_SIZES     = ['Small', 'Medium', 'Large', 'Extra Large', 'Full Sleeve', 'Half Sleeve'];
+const VALID_STATUSES  = ['pending', 'confirmed', 'completed', 'cancelled'];
+const VALID_LOCATIONS = ['studio', 'house_call'];
 
 // ── Create booking validation ─────────────────────────────────────────────────
 function validateCreateBooking(data) {
@@ -75,6 +76,14 @@ function validateCreateBooking(data) {
     }
   }
 
+  // bookingLocation
+  const bookingLocation = (data.bookingLocation || '').trim();
+  if (!bookingLocation) {
+    errors.bookingLocation = 'Booking location is required.';
+  } else if (!VALID_LOCATIONS.includes(bookingLocation)) {
+    errors.bookingLocation = "Booking location must be 'studio' or 'house_call'.";
+  }
+
   return { errors, isValid: Object.keys(errors).length === 0 };
 }
 
@@ -92,4 +101,4 @@ function validateStatusUpdate(data) {
   return { errors, isValid: Object.keys(errors).length === 0 };
 }
 
-module.exports = { validateCreateBooking, validateStatusUpdate, VALID_SIZES, VALID_STATUSES };
+module.exports = { validateCreateBooking, validateStatusUpdate, VALID_SIZES, VALID_STATUSES, VALID_LOCATIONS };

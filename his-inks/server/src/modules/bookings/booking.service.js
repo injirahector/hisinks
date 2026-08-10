@@ -30,18 +30,19 @@ async function createBooking(data, userId = null) {
   const initialStatus = consultation ? 'confirmed' : 'pending';
 
   const booking = await Booking.create({
-    customerName:   data.customerName.trim(),
-    phone:          data.phone.trim(),
-    email:          data.email ? data.email.trim().toLowerCase() : null,
-    tattooIdea:     data.tattooIdea.trim(),
-    description:    data.description.trim(),
-    placement:      data.placement.trim(),
-    size:           data.size.trim(),
-    referenceImage: data.referenceImage ? data.referenceImage.trim() : null,
-    preferredDate:  new Date(data.preferredDate),
-    notes:          data.notes ? data.notes.trim() : null,
+    customerName:    data.customerName.trim(),
+    phone:           data.phone.trim(),
+    email:           data.email ? data.email.trim().toLowerCase() : null,
+    tattooIdea:      data.tattooIdea.trim(),
+    description:     data.description.trim(),
+    placement:       data.placement.trim(),
+    size:            data.size.trim(),
+    referenceImage:  data.referenceImage ? data.referenceImage.trim() : null,
+    preferredDate:   new Date(data.preferredDate),
+    notes:           data.notes ? data.notes.trim() : null,
+    bookingLocation: data.bookingLocation ? data.bookingLocation.trim() : null,
     userId,
-    status:         initialStatus,
+    status:          initialStatus,
   });
 
   // Link consultation to this booking and mark it as booked

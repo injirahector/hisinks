@@ -23,7 +23,8 @@ const app = express();
 // ── Middleware ────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   process.env.CLIENT_URL || 'http://localhost:5173',
-  'http://localhost:8081', // Expo web
+  'http://localhost:5173',  // always allow local dev regardless of CLIENT_URL
+  'http://localhost:8081',  // Expo web
   'http://localhost:19006', // Expo web (older versions)
 ];
 

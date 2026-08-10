@@ -118,6 +118,14 @@ function BookingCard({ booking, reviewed, onRate }) {
               <p className="text-white/30 text-xs uppercase tracking-widest mb-1">Submitted</p>
               <p className="text-white text-sm">{fmtDate(booking.createdAt)}</p>
             </div>
+            {booking.bookingLocation && (
+              <div>
+                <p className="text-white/30 text-xs uppercase tracking-widest mb-1">Booking Location</p>
+                <p className="text-white text-sm">
+                  {booking.bookingLocation === 'studio' ? 'Come to Studio' : 'House Call'}
+                </p>
+              </div>
+            )}
           </div>
 
           {booking.description && (

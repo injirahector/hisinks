@@ -28,7 +28,7 @@ function MaintenancePage() {
       {/* ── Main message ─────────────────────────────────────────────────── */}
       <div className="max-w-md w-full text-center space-y-4">
         <p className="text-white/90 text-base leading-relaxed">
-          The His Inks website is temporarily unavailable while we perform system updates.
+          The His Inks website is temporarily unavailable while we perform system updates. Meanwhile you can book your appointments at +254112146636.
         </p>
         <p className="text-white/60 text-sm leading-relaxed">
           Please check back shortly.

@@ -90,6 +90,26 @@ function BookingCard({ booking, reviewed, onRate }) {
             </div>
           )}
 
+          {/* ── Aftercare reminder (completed bookings) ── */}
+          {isCompleted && (
+            <div className="flex items-center justify-between gap-4 px-4 py-3
+                            border border-white/8 bg-white/3">
+              <div>
+                <p className="text-white/70 text-xs uppercase tracking-widest mb-0.5">Aftercare</p>
+                <p className="text-white/40 text-xs leading-relaxed">
+                  Remember to follow your aftercare instructions while your tattoo heals.
+                </p>
+              </div>
+              <Link
+                to="/aftercare"
+                className="flex-shrink-0 text-xs tracking-widest uppercase border border-white/20
+                           text-white/50 hover:text-white hover:border-white/40 px-3 py-1.5 transition-colors whitespace-nowrap"
+              >
+                Aftercare Guide →
+              </Link>
+            </div>
+          )}
+
           {booking.notes && (
             <div className="bg-white/3 border border-white/8 px-4 py-3">
               <p className="text-white/40 text-xs tracking-widest uppercase mb-1">Studio Note</p>

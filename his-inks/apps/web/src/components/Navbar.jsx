@@ -365,6 +365,18 @@ function Navbar() {
                           </svg>
                           Referrals
                         </Link>
+                        <Link
+                          to="/aftercare"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
+                                     hover:text-white hover:bg-white/5 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round"
+                              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Aftercare Guide
+                        </Link>
                       </>
                     )}
 
@@ -500,6 +512,10 @@ function Navbar() {
                     <Link to="/referrals" onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
                       Referrals
+                    </Link>
+                    <Link to="/aftercare" onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
+                      Aftercare Guide
                     </Link>
                   </>
                 )}

@@ -23,23 +23,42 @@ async function getUserById(userId) {
 }
 
 // ── Get all customers (admin) ─────────────────────────────────────────────────
-async function getAllUsers({ search = '', page = 1, limit = 20 } = {}) {
+async function getAllUsers({ search = '', page = 1, limit = 20, deleted } = {}) {
   const filter = { role: 'customer' };
+
+  // deleted=true  → only deleted/anonymized accounts
+  // deleted=false → only active accounts (default when not specified)
+  // deleted=all   → everyone
+  if (deleted === 'true') {
+    filter.deletedAt = { $ne: null, $exists: true };
+  } else if (deleted === 'all') {
+    // no deletedAt filter — show everyone
+  } else {
+    // default: active accounts only (deletedAt absent or null)
+    filter.$or = [{ deletedAt: null }, { deletedAt: { $exists: false } }];
+  }
 
   if (search) {
     const re = new RegExp(search.trim(), 'i');
-    filter.$or = [
+    const searchOr = [
       { firstName: re },
       { lastName:  re },
       { email:     re },
       { phone:     re },
     ];
+    // Merge with any existing $or from the deletedAt filter
+    if (filter.$or) {
+      filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
+      delete filter.$or;
+    } else {
+      filter.$or = searchOr;
+    }
   }
 
   const skip = (page - 1) * limit;
 
   const [users, total] = await Promise.all([
-    User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    User.find(filter).select('+deletedAt').sort({ createdAt: -1 }).skip(skip).limit(limit),
     User.countDocuments(filter),
   ]);
 

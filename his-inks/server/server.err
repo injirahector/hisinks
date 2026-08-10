@@ -1,2 +1,17 @@
-(node:9548) [MONGOOSE] Warning: Duplicate schema index on {"userId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
-(Use `node --trace-warnings ...` to show where the warning was created)
+Error: Invalid email or password.
+    at Object.login (C:\Users\Admin\Desktop\hisinks\his-inks\server\src\modules\auth\auth.service.js:72:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async login (C:\Users\Admin\Desktop\hisinks\his-inks\server\src\modules\auth\auth.controller.js:44:20)
+Error: Invalid email or password.
+    at Object.login (C:\Users\Admin\Desktop\hisinks\his-inks\server\src\modules\auth\auth.service.js:72:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async login (C:\Users\Admin\Desktop\hisinks\his-inks\server\src\modules\auth\auth.controller.js:44:20)
+ssTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 5000
+}
+
+Node.js v20.20.2

@@ -30,11 +30,12 @@ async function updateMe(req, res, next) {
 // ── GET /api/users  (admin only) ──────────────────────────────────────────────
 async function getAllUsers(req, res, next) {
   try {
-    const { search = '', page, limit } = req.query;
+    const { search = '', page, limit, deleted } = req.query;
     const result = await userService.getAllUsers({
       search,
-      page:  page  ? parseInt(page,  10) : 1,
-      limit: limit ? parseInt(limit, 10) : 20,
+      page:    page    ? parseInt(page,    10) : 1,
+      limit:   limit   ? parseInt(limit,   10) : 20,
+      deleted: deleted ?? 'false',   // default: active accounts only
     });
     return res.status(200).json({
       success: true,

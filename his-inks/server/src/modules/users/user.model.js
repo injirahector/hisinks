@@ -160,9 +160,15 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // ── Instance method: safe public object (no password) ────────────────────────
+// deletedAt is included so admin-facing responses can show deletion status.
+// It is never returned to regular customers because protect() blocks deleted
+// accounts before they reach any route handler.
 userSchema.methods.toSafeObject = function () {
   const obj = this.toObject();
   delete obj.password;
+  // Ensure deletedAt is present even when the field was select:false on the query
+  // (toObject() only includes fields that were actually loaded)
+  if (obj.deletedAt === undefined) obj.deletedAt = this.deletedAt ?? null;
   return obj;
 };
 

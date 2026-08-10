@@ -3,12 +3,19 @@ const User = require('../users/user.model');
 const { generateToken } = require('../../utils/jwt.utils');
 const { verifyGoogleToken } = require('./google.strategy');
 const { sendPasswordResetEmail } = require('../../services/email.service');
+
 // Lazy-loaded to avoid circular dependency issues at startup
 let _referralService = null;
 function getReferralService() {
   if (!_referralService) _referralService = require('../referrals/referral.service');
   return _referralService;
 }
+
+// Lazy-loaded models used only in deleteAccount — loaded at call time, not at startup
+function getBooking()       { return require('../bookings/booking.model'); }
+function getConsultation()  { return require('../consultations/consultation.model'); }
+function getMessageThread() { return require('../messages/message.model'); }
+function getNotification()  { return require('../notifications/notification.model'); }
 
 /**
  * Builds the standard auth response payload.
@@ -22,18 +29,19 @@ function buildAuthResponse(user) {
 // Public registration always creates a customer account.
 // The admin account is managed directly by the studio owner.
 async function register({ firstName, lastName, email, phone, password, referralCode }) {
-  // Duplicate email check
-  const existingEmail = await User.findOne({ email: email.toLowerCase().trim() });
-  if (existingEmail) {
+  // Duplicate email check — but skip anonymized deleted-account emails so a
+  // genuinely new customer can reuse the same address after deletion.
+  const existingEmail = await User.findOne({ email: email.toLowerCase().trim() }).select('+deletedAt');
+  if (existingEmail && !existingEmail.deletedAt) {
     const err = new Error('An account with this email already exists.');
     err.statusCode = 409;
     throw err;
   }
 
-  // Duplicate phone check
+  // Duplicate phone check — same rule: ignore deleted accounts
   if (phone) {
-    const existingPhone = await User.findOne({ phone: phone.trim() });
-    if (existingPhone) {
+    const existingPhone = await User.findOne({ phone: phone.trim() }).select('+deletedAt');
+    if (existingPhone && !existingPhone.deletedAt) {
       const err = new Error('An account with this phone number already exists.');
       err.statusCode = 409;
       throw err;
@@ -57,9 +65,18 @@ async function register({ firstName, lastName, email, phone, password, referralC
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 async function login({ email, password }) {
+  // Select deletedAt so we can block deleted accounts before any other check
   const user = await User.findByEmailWithPassword(email);
 
   if (!user) {
+    const err = new Error('Invalid email or password.');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  // Block deleted accounts — return a generic 401 so we don't reveal the
+  // account's anonymized state to an attacker
+  if (user.deletedAt) {
     const err = new Error('Invalid email or password.');
     err.statusCode = 401;
     throw err;
@@ -98,8 +115,8 @@ async function getMe(userId) {
 // Called from POST /api/auth/google
 // Strategy:
 //   1. Verify the Google ID token — get { googleId, email, firstName, lastName, picture }
-//   2. Look up by googleId           → existing linked user → log in
-//   3. Look up by email              → existing local user  → link Google, log in
+//   2. Look up by googleId           → existing linked user → log in (unless deleted)
+//   3. Look up by email              → existing local user  → link Google, log in (unless deleted)
 //   4. Neither found                 → create new customer account
 //   Referral code is applied only for brand-new accounts (step 4).
 async function googleAuth({ credential, referralCode }) {
@@ -108,14 +125,31 @@ async function googleAuth({ credential, referralCode }) {
   const { googleId, email, firstName, lastName, picture } = profile;
 
   // Step 2: find by googleId — fastest path for returning Google users
-  let user = await User.findOne({ googleId });
+  let user = await User.findOne({ googleId }).select('+deletedAt');
   if (user) {
+    // Block deleted accounts — do not re-authenticate them
+    if (user.deletedAt) {
+      const err = new Error('This Google account has been deleted. Please register a new account.');
+      err.statusCode = 401;
+      throw err;
+    }
     return buildAuthResponse(user);
   }
 
   // Step 3: find by email — account exists with password login
-  user = await User.findOne({ email });
+  user = await User.findOne({ email }).select('+deletedAt');
   if (user) {
+    // If this email now belongs to a deleted/anonymized account, do NOT link
+    // Google to it.  The original email was changed to deleted-user-{id}@deleted.local
+    // during anonymization, so in practice this branch won't match a deleted account
+    // via the original email.  The guard below is a belt-and-suspenders safety net
+    // in case the lookup somehow returns an anonymized record.
+    if (user.deletedAt) {
+      const err = new Error('This Google account has been deleted. Please register a new account.');
+      err.statusCode = 401;
+      throw err;
+    }
+
     // Link Google to the existing account — safe merge, no data loss
     user.googleId      = googleId;
     user.authProvider  = 'google';
@@ -156,11 +190,16 @@ async function requestPasswordReset(email) {
 
   const normalised = email.toLowerCase().trim();
   const user = await User.findOne({ email: normalised }).select(
-    '+passwordResetToken +passwordResetExpires +authProvider +password'
+    '+passwordResetToken +passwordResetExpires +authProvider +password +deletedAt'
   );
 
   // Always resolve successfully — never reveal whether the email exists
   if (!user) return;
+
+  // Do not send a reset email to a deleted/anonymized account — the anonymized
+  // email is an internal placeholder, not a real address, so the email would
+  // bounce anyway.  Silently return without error (same enumeration-safe pattern).
+  if (user.deletedAt) return;
 
   // Google-only accounts have no password — do not send a reset email that
   // would create a confusing / misleading auth flow for them.
@@ -206,6 +245,7 @@ async function requestPasswordReset(email) {
 //   - Client-provided userId is NEVER trusted — user is found only by token hash
 //   - Token is one-time: cleared immediately on success
 //   - Generic error for invalid/expired tokens
+//   - Deleted accounts cannot reset their password (deletedAt guard)
 async function resetPassword(rawToken, newPassword) {
   if (!rawToken || typeof rawToken !== 'string') {
     const err = new Error('Invalid or expired password reset link.');
@@ -220,9 +260,16 @@ async function resetPassword(rawToken, newPassword) {
   const user = await User.findOne({
     passwordResetToken:   hashedToken,
     passwordResetExpires: { $gt: Date.now() },
-  }).select('+password +passwordResetToken +passwordResetExpires');
+  }).select('+password +passwordResetToken +passwordResetExpires +deletedAt');
 
   if (!user) {
+    const err = new Error('Invalid or expired password reset link.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Deleted accounts must not be reactivated via password reset
+  if (user.deletedAt) {
     const err = new Error('Invalid or expired password reset link.');
     err.statusCode = 400;
     throw err;
@@ -240,4 +287,219 @@ async function resetPassword(rawToken, newPassword) {
   await user.save();
 }
 
-module.exports = { register, login, getMe, googleAuth, requestPasswordReset, resetPassword };
+// ── Delete Account ────────────────────────────────────────────────────────────
+//
+// Permanently anonymizes a customer account and removes personal data.
+//
+// Security model:
+//   - Only callable for role === 'customer' (enforced by restrictTo in the route)
+//   - User is identified from req.user (JWT), never from a client-supplied ID
+//   - Requires { confirmation: 'DELETE' } in the request body
+//   - Local accounts additionally require the current password
+//   - Active bookings (pending/confirmed) block deletion
+//   - Active consultations with a paid deposit block deletion
+//
+// Data strategy:
+//   ANONYMIZE (keep record, remove PII):
+//     - User document itself — deletedAt set so all auth paths reject it immediately
+//     - Bookings (customerName, email, phone fields; userId unset)
+//     - Consultations (customerName, email, phone fields; userId kept for history)
+//     - Reviews (customer ObjectId reference preserved but author name gone)
+//     - MessageThread (customerName, email, phone anonymized)
+//     - Referral records (referrer/referredCustomer ObjectIds preserved for audit)
+//   DELETE (safe to remove entirely):
+//     - Notifications (personal inbox — no business value after account gone)
+//
+async function deleteAccount(userId, { confirmation, password } = {}) {
+  // ── 1. Validate confirmation token ────────────────────────────────────────
+  if (!confirmation || confirmation !== 'DELETE') {
+    const err = new Error('Please type DELETE to confirm account deletion.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // ── 2. Load the user (with password for local accounts) ───────────────────
+  const user = await User.findById(userId).select('+password +deletedAt');
+  if (!user) {
+    const err = new Error('User not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Guard: only customers can delete via this endpoint (belt-and-suspenders
+  // on top of the restrictTo('customer') middleware in the route)
+  if (user.role !== 'customer') {
+    const err = new Error('Account deletion is only available for customer accounts.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // ── 3. Password verification (local accounts only) ────────────────────────
+  // Google-only accounts have authProvider === 'google' and no password field.
+  // We skip password verification for those accounts entirely.
+  if (user.authProvider === 'local' || user.password) {
+    if (!password) {
+      const err = new Error('Please enter your current password to confirm account deletion.');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!user.password) {
+      // Edge case: local account that somehow has no hashed password — block safely
+      const err = new Error('Password verification failed. Please contact support.');
+      err.statusCode = 400;
+      throw err;
+    }
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      const err = new Error('Incorrect password. Please try again.');
+      err.statusCode = 401;
+      throw err;
+    }
+  }
+
+  // ── 4. Active booking check ───────────────────────────────────────────────
+  const Booking = getBooking();
+  const activeBooking = await Booking.findOne({
+    userId,
+    status: { $in: ['pending', 'confirmed'] },
+  });
+  if (activeBooking) {
+    const err = new Error(
+      'Your account cannot be deleted while you have an active booking. ' +
+      'Please complete or cancel the booking first.'
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // ── 5. Active consultation/deposit check ──────────────────────────────────
+  // Block deletion only when a deposit has been confirmed but no booking has
+  // been created yet (status === 'deposit_paid').  Once the consultation moves
+  // to 'booked', a real Booking record exists and the booking check above
+  // already handles that case — no need to block here again.
+  const Consultation = getConsultation();
+  const activeConsultation = await Consultation.findOne({
+    userId,
+    status: 'deposit_paid',
+  });
+  if (activeConsultation) {
+    const err = new Error(
+      'Your account cannot be deleted while you have a confirmed deposit awaiting booking. ' +
+      'Please complete your booking or contact the studio to resolve this first.'
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // ── 6. Build a stable anonymized identifier for this user ─────────────────
+  // Using the last 8 hex chars of the userId to keep uniqueness across all
+  // anonymized records (avoids violating the email unique index on User).
+  const anonId    = userId.toString().slice(-8);
+  const anonEmail = `deleted-user-${anonId}@deleted.local`;
+  const anonName  = 'Deleted User';
+
+  // ── 7. Anonymize the User document and set deletedAt ─────────────────────
+  // deletedAt is set FIRST — this is the gate that immediately blocks all auth
+  // paths (protect middleware, login, googleAuth, requestPasswordReset,
+  // resetPassword) from accepting this account again.
+  //
+  // We use findByIdAndUpdate with explicit $set/$unset instead of document.save()
+  // because Mongoose does not reliably $unset sparse-indexed fields (phone,
+  // googleId, referralCode) when set to undefined in memory — it may store null
+  // instead, causing E11000 duplicate key errors on the second account deletion.
+  await User.findByIdAndUpdate(
+    userId,
+    {
+      $set: {
+        deletedAt:    new Date(),
+        firstName:    anonName,
+        lastName:     '',
+        email:        anonEmail,
+        profileImage: null,
+        bio:          null,
+        location:     null,
+        authProvider: 'local',
+      },
+      $unset: {
+        // sparse unique indexes — must be absent, not null
+        phone:                '',
+        googleId:             '',
+        referralCode:         '',
+        // credentials / tokens — remove entirely
+        password:             '',
+        passwordResetToken:   '',
+        passwordResetExpires: '',
+      },
+    },
+    { runValidators: false }
+  );
+
+  // ── 8. Anonymize Bookings (preserve historical records for admin) ─────────
+  await Booking.updateMany(
+    { userId },
+    {
+      $set: {
+        customerName: anonName,
+        email:        anonEmail,
+        phone:        'removed',
+      },
+      // Null out the userId foreign key so the booking no longer links to the
+      // (now-anonymous) user document.  Historical data stays intact for admin.
+      $unset: { userId: '' },
+    }
+  );
+
+  // ── 9. Anonymize Consultations (preserve history) ────────────────────────
+  await Consultation.updateMany(
+    { userId },
+    {
+      $set: {
+        customerName: anonName,
+        email:        anonEmail,
+        phone:        'removed',
+      },
+      // userId is kept intentionally (it still points to the anonymized user doc)
+    }
+  );
+
+  // ── 10. Anonymize MessageThread ───────────────────────────────────────────
+  const MessageThread = getMessageThread();
+  await MessageThread.updateMany(
+    { userId },
+    {
+      $set: {
+        customerName: anonName,
+        email:        anonEmail,
+        phone:        'removed',
+      },
+    }
+  );
+
+  // ── 11. Reviews — preserve, customer ObjectId reference stays ────────────
+  // The review.customer field is an ObjectId that now points to the anonymized
+  // user.  Admin review pages display user.firstName + user.lastName =
+  // 'Deleted User'.  No structural change needed.
+
+  // ── 12. Delete Notifications (personal inbox, no business value) ─────────
+  const Notification = getNotification();
+  await Notification.deleteMany({ userId });
+
+  // ── 13. Referrals — preserve for commission audit trail ──────────────────
+  // Referral records reference this user via ObjectId.  Those now point to the
+  // anonymized user doc.  No structural changes needed.
+
+  // Log deletion event (minimal — no PII, no JWT, no password)
+  console.info(
+    `[ACCOUNT_DELETED] userId=${userId} timestamp=${new Date().toISOString()}`
+  );
+}
+
+module.exports = {
+  register,
+  login,
+  getMe,
+  googleAuth,
+  requestPasswordReset,
+  resetPassword,
+  deleteAccount,
+};

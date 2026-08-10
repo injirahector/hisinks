@@ -1650,6 +1650,7 @@ function ProfileTab({ user, onUpdate }) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const fileRef = useRef(null);
 
   // Keep form in sync if user prop changes
@@ -1846,6 +1847,223 @@ function ProfileTab({ user, onUpdate }) {
           {saving ? 'Saving…' : 'Save Changes'}
         </button>
       </form>
+
+      {/* ── Danger Zone ──────────────────────────────────────────────── */}
+      <div className="mt-10 rounded-xl border border-red-500/30 bg-red-500/5 p-6">
+        <div className="flex items-center gap-2 mb-1">
+          {/* warning icon */}
+          <svg className="h-4 w-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+          <p className="text-xs uppercase tracking-[0.3em] text-red-400 font-medium">Danger Zone</p>
+        </div>
+
+        <h3 className="font-display text-lg text-white mb-1">Delete Account</h3>
+        <p className="text-sm text-white/45 mb-5 max-w-lg">
+          Permanently delete your His&nbsp;Inks account and remove your personal information.
+          Historical booking and transaction records may be retained where required.
+          This action <span className="text-red-400 font-medium">cannot be undone</span>.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setShowDeleteModal(true)}
+          className="inline-flex items-center gap-2 rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm text-red-400 transition-colors hover:bg-red-500/20 hover:border-red-500/70 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+        >
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+          </svg>
+          Delete Account
+        </button>
+      </div>
+
+      {/* ── Delete Account Modal ─────────────────────────────────────── */}
+      {showDeleteModal && (
+        <DeleteAccountModal
+          user={user}
+          onClose={() => setShowDeleteModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── DeleteAccountModal ───────────────────────────────────────── */
+function DeleteAccountModal({ user, onClose }) {
+  const { logout } = useAuth();
+  const navigate   = useNavigate();
+
+  const isGoogleOnly = user?.authProvider === 'google' && !user?.hasPassword;
+
+  const [confirmation, setConfirmation] = useState('');
+  const [password,     setPassword]     = useState('');
+  const [submitting,   setSubmitting]   = useState(false);
+  const [error,        setError]        = useState('');
+
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // Close on Escape key
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const canSubmit =
+    confirmation === 'DELETE' &&
+    !submitting &&
+    (isGoogleOnly || password.length > 0);
+
+  async function handleDelete() {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const body = { confirmation };
+      if (!isGoogleOnly) body.password = password;
+
+      await api.delete('/auth/account', { data: body });
+
+      // Clear client-side auth state (removes token from localStorage + clears user)
+      await logout();
+
+      // Navigate to home with a success flag so the landing page can show a toast
+      navigate('/', { replace: true, state: { accountDeleted: true } });
+    } catch (err) {
+      const msg = err.message || 'Unable to delete your account right now. Please try again later.';
+      setError(msg);
+      setSubmitting(false);
+    }
+  }
+
+  const inputClass =
+    'w-full bg-white/5 border border-white/10 px-4 py-2.5 text-white text-sm placeholder-white/25 focus:outline-none focus:border-brand-accent rounded-lg transition-colors';
+
+  return (
+    /* Backdrop */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-modal-title"
+    >
+      <div className="relative w-full max-w-md rounded-2xl border border-red-500/25 bg-[#141414] shadow-2xl">
+
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-white/8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/15 border border-red-500/30">
+              <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+            </div>
+            <div>
+              <h2 id="delete-modal-title" className="font-display text-lg text-white">Delete your account?</h2>
+              <p className="text-xs text-white/35 mt-0.5">This action is permanent and cannot be undone.</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 rounded-lg p-1.5 text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors focus:outline-none"
+            aria-label="Close"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-5">
+
+          {/* What happens notice */}
+          <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3 space-y-1.5 text-sm text-white/50">
+            <p className="font-medium text-white/70">What happens when you delete your account:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Your personal information will be removed or anonymized.</li>
+              <li>Historical booking and transaction records are retained where required.</li>
+              <li>You will be immediately logged out.</li>
+              <li>You will not be able to log back in with this account.</li>
+            </ul>
+          </div>
+
+          {/* Confirmation input */}
+          <div className="space-y-1.5">
+            <label htmlFor="delete-confirmation" className="text-xs text-white/40 uppercase tracking-wide">
+              Type <span className="font-mono text-red-400 font-semibold">DELETE</span> to confirm
+            </label>
+            <input
+              id="delete-confirmation"
+              type="text"
+              value={confirmation}
+              onChange={(e) => setConfirmation(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              spellCheck={false}
+              className={`${inputClass} ${confirmation === 'DELETE' ? 'border-red-500/50' : ''}`}
+            />
+          </div>
+
+          {/* Password input — only for local / non-Google-only accounts */}
+          {!isGoogleOnly && (
+            <div className="space-y-1.5">
+              <label htmlFor="delete-password" className="text-xs text-white/40 uppercase tracking-wide">
+                Current Password
+              </label>
+              <input
+                id="delete-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your current password"
+                autoComplete="current-password"
+                className={inputClass}
+              />
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
+              <svg className="h-4 w-4 shrink-0 mt-0.5 text-red-400" fill="none" viewBox="0 0 20 20" aria-hidden="true">
+                <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M10 6v4m0 3.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <p className="text-sm text-red-300">{error}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 pb-6">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="rounded-lg border border-white/10 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:border-white/20 transition-colors focus:outline-none disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={!canSubmit}
+            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {submitting && (
+              <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
+            )}
+            {submitting ? 'Deleting…' : 'Delete Account'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

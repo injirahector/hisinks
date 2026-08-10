@@ -127,6 +127,18 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+
+    // ── Soft-deletion marker ───────────────────────────────────────────────
+    // Set to the timestamp of account deletion when a customer deletes their
+    // account.  Null for all active (non-deleted) accounts.
+    // Used by the protect() middleware to immediately block deleted accounts
+    // from authenticating, even while their JWT is still within its expiry window.
+    // select: false — never exposed in normal user queries or auth responses.
+    deletedAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -136,6 +148,8 @@ const userSchema = new mongoose.Schema(
 // ── Pre-save hook: hash password ──────────────────────────────────────────────
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
+  // If password was cleared (account deletion anonymization), skip hashing
+  if (!this.password) return next();
   this.password = await bcrypt.hash(this.password, SALT_ROUNDS);
   next();
 });
@@ -153,8 +167,9 @@ userSchema.methods.toSafeObject = function () {
 };
 
 // ── Static: find by email with password included ──────────────────────────────
+// Also selects deletedAt so login() can immediately reject deleted accounts.
 userSchema.statics.findByEmailWithPassword = function (email) {
-  return this.findOne({ email: email.toLowerCase().trim() }).select('+password');
+  return this.findOne({ email: email.toLowerCase().trim() }).select('+password +deletedAt');
 };
 
 const User = mongoose.model('User', userSchema);

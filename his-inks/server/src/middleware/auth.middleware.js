@@ -27,10 +27,16 @@ async function protect(req, res, next) {
     // Verify token
     const decoded = verifyToken(token);
 
-    // Fetch user (excludes password by default)
-    const user = await User.findById(decoded.id);
+    // Fetch user — also select deletedAt (select:false by default) so we can
+    // immediately block accounts that have been deleted mid-session.
+    const user = await User.findById(decoded.id).select('+deletedAt');
     if (!user) {
       return res.status(401).json({ success: false, message: 'User no longer exists.' });
+    }
+
+    // Block deleted accounts immediately — even if their JWT has not expired yet
+    if (user.deletedAt) {
+      return res.status(401).json({ success: false, message: 'This account has been deleted.' });
     }
 
     req.user = user;

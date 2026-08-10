@@ -158,5 +158,31 @@ async function resetPassword(req, res, next) {
   }
 }
 
-module.exports = { register, login, getMe, logout, googleAuth, forgotPassword, resetPassword };
+// ── DELETE /api/auth/account  (protected, customer only) ─────────────────────
+// Permanently anonymizes the authenticated customer's account.
+// Identity comes from the verified JWT (req.user) — never from the request body.
+// Body: { confirmation: 'DELETE', password?: string }
+async function deleteAccount(req, res, next) {
+  try {
+    const { confirmation, password } = req.body;
+
+    await authService.deleteAccount(req.user._id, { confirmation, password });
+
+    // Clear the auth cookie — best-effort session invalidation for stateless JWTs
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your account has been successfully deleted.',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, getMe, logout, googleAuth, forgotPassword, resetPassword, deleteAccount };
 

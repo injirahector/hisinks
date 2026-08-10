@@ -13,7 +13,7 @@ router.get('/my-bookings',  protect, userController.getMyBookings);
 // GET /api/users       — admin only
 router.get('/',    protect, restrictTo('admin'), userController.getAllUsers);
 
-// GET /api/users/:id
-router.get('/:id', protect, userController.getUserById);
+// GET /api/users/:id  — admin only
+router.get('/:id', protect, restrictTo('admin'), userController.getUserById);
 
 module.exports = router;

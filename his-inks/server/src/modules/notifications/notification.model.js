@@ -10,20 +10,31 @@ const mongoose = require('mongoose');
 // deposit_rejected        — admin rejected M-Pesa deposit (resubmit needed)
 
 const NOTIFICATION_TYPES = [
-  'booking_confirmed',
-  'booking_cancelled',
-  'booking_completed',
-  'consultation_reply',
-  'consultation_agreed',
-  'deposit_confirmed',
-  'deposit_rejected',
+  // Booking types
+  'booking_pending',        // customer submitted a booking awaiting admin review
+  'booking_confirmed',      // admin confirmed the booking
+  'booking_cancelled',      // booking was cancelled (auto or manual)
+  'booking_completed',      // booking marked completed
+  // Consultation types
+  'consultation_reply',     // admin replied in the consultation chat
+  'consultation_agreed',    // admin set a price and marked as agreed
+  'consultation_closed',    // admin closed the consultation
+  // Payment/deposit types
+  'deposit_confirmed',      // admin confirmed M-Pesa deposit
+  'deposit_rejected',       // admin rejected M-Pesa deposit (resubmit needed)
+  // Direct message types
+  'direct_message_reply',   // admin replied to a customer's direct message
+  // Review types
+  'artist_review_reply',    // artist replied to the customer's review
+  // Referral types
+  'referral_commission_eligible', // referral commission is now eligible for payout
+  'referral_paid',          // admin marked referral commission as paid
   // Admin-facing types
   'admin_new_booking',
   'admin_consultation_message',
   'admin_deposit_submitted',
   'admin_new_review',
-  // Referral types
-  'referral_commission_eligible',
+  'admin_direct_message',   // customer sent a direct message to admin
 ];
 
 const notificationSchema = new mongoose.Schema(

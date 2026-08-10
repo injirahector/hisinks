@@ -282,6 +282,56 @@ function notifyReferralEligible(userId, commissionAmount) {
   });
 }
 
+// ── Booking pending (customer submitted, awaiting admin review) ───────────────
+function notifyBookingPending(userId, preferredDate) {
+  const dateStr = new Date(preferredDate).toLocaleDateString('en-KE', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  return createNotification({
+    userId,
+    type:    'booking_pending',
+    title:   'Booking Request Received 📋',
+    message: `We've received your booking request for ${dateStr}. We'll review it and be in touch within 24–48 hours to confirm.`,
+    link:    '/my-bookings',
+  });
+}
+
+// ── Consultation closed ───────────────────────────────────────────────────────
+function notifyConsultationClosed(userId) {
+  return createNotification({
+    userId,
+    type:    'consultation_closed',
+    title:   'Consultation Closed',
+    message: 'Your consultation has been closed by the studio. If you have further questions, feel free to start a new consultation or send us a direct message.',
+    link:    '/my-consultation',
+  });
+}
+
+// ── Artist replied to a customer review ──────────────────────────────────────
+function notifyArtistReplyToReview(userId) {
+  return createNotification({
+    userId,
+    type:    'artist_review_reply',
+    title:   'His Inks Replied to Your Review ✍️',
+    message: 'The artist has replied to your review. Tap to read their response.',
+    link:    '/my-reviews',
+  });
+}
+
+// ── Referral commission paid ──────────────────────────────────────────────────
+function notifyReferralPaid(userId, commissionAmount) {
+  const amount = commissionAmount
+    ? `KES ${Number(commissionAmount).toLocaleString('en-KE')}`
+    : 'your referral commission';
+  return createNotification({
+    userId,
+    type:    'referral_paid',
+    title:   'Referral Commission Paid 💸',
+    message: `Great news! ${amount} in referral commission has been sent to you. Check your referrals page for details.`,
+    link:    '/referrals',
+  });
+}
+
 module.exports = {
   createNotification,
   getMyNotifications,
@@ -289,13 +339,16 @@ module.exports = {
   markAsRead,
   markAllAsRead,
   // Customer wrappers
+  notifyBookingPending,
   notifyBookingConfirmed,
   notifyBookingCancelled,
   notifyBookingCompleted,
   notifyConsultationReply,
   notifyConsultationAgreed,
+  notifyConsultationClosed,
   notifyDepositConfirmed,
   notifyDepositRejected,
+  notifyArtistReplyToReview,
   // Admin wrappers
   notifyAdminNewBooking,
   notifyAdminConsultationMessage,
@@ -306,5 +359,6 @@ module.exports = {
   notifyCustomerDirectMessageReply,
   // Referral wrappers
   notifyReferralEligible,
+  notifyReferralPaid,
   clearAdminCache,
 };

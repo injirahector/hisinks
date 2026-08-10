@@ -1,6 +1,7 @@
 const Booking      = require('./booking.model');
 const { getAgreedConsultation, linkBooking } = require('../consultations/consultation.service');
 const {
+  notifyBookingPending,
   notifyBookingConfirmed,
   notifyBookingCancelled,
   notifyBookingCompleted,
@@ -54,6 +55,11 @@ async function createBooking(data, userId = null) {
   // Notify the customer their booking is confirmed right away
   if (initialStatus === 'confirmed' && userId) {
     notifyBookingConfirmed(userId, booking.preferredDate);
+  }
+
+  // Notify the customer their booking request was received (pending review)
+  if (initialStatus === 'pending' && userId) {
+    notifyBookingPending(userId, booking.preferredDate);
   }
 
   // Notify admin of the new booking

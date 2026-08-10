@@ -46,6 +46,19 @@ function DeletedBadge() {
   );
 }
 
+// ── Referred badge (table) ────────────────────────────────────────────────────
+function ReferredBadge() {
+  return (
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-full
+                 text-[10px] font-medium tracking-widest uppercase
+                 bg-brand-accent/10 border border-brand-accent/25 text-brand-accent/80"
+    >
+      Referred
+    </span>
+  );
+}
+
 // ── Customer detail drawer ────────────────────────────────────────────────────
 function CustomerDrawer({ customer, onClose }) {
   const isDeleted = Boolean(customer.deletedAt);
@@ -137,6 +150,60 @@ function CustomerDrawer({ customer, onClose }) {
               value={customer.isVerified ? 'Yes' : 'No'}
               valueClass={customer.isVerified ? 'text-green-400' : 'text-white/40'}
             />
+          </div>
+
+          {/* Referral Information */}
+          <div className="border-t border-white/8 pt-5 space-y-4">
+            <p className="text-white/30 text-xs tracking-widest uppercase">Referral</p>
+
+            {/* Signup type */}
+            <div>
+              <p className="text-white/30 text-xs tracking-widest uppercase mb-1">Signup Type</p>
+              {customer.referredBy ? (
+                <span className="inline-flex items-center gap-1.5 text-sm text-brand-accent">
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor"
+                    strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                  </svg>
+                  Referred Customer
+                </span>
+              ) : (
+                <span className="text-sm text-white/40">Direct Signup</span>
+              )}
+            </div>
+
+            {/* Referred by */}
+            {customer.referredBy ? (
+              <div>
+                <p className="text-white/30 text-xs tracking-widest uppercase mb-1">Referred By</p>
+                {customer.referredBy.deleted ? (
+                  <p className="text-white/30 text-sm italic">Deleted account</p>
+                ) : (
+                  <div>
+                    <p className="text-white/80 text-sm">{customer.referredBy.displayName}</p>
+                    <p className="text-white/35 text-xs mt-0.5">{customer.referredBy.email}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-white/30 text-xs tracking-widest uppercase mb-1">Referred By</p>
+                <p className="text-white/25 text-sm">Not referred — customer joined directly.</p>
+              </div>
+            )}
+
+            {/* Customers this person has referred */}
+            <div>
+              <p className="text-white/30 text-xs tracking-widest uppercase mb-1">
+                Customers Referred
+              </p>
+              <p className="text-white/70 text-sm">
+                {customer.referralCount > 0
+                  ? `${customer.referralCount} customer${customer.referralCount !== 1 ? 's' : ''}`
+                  : 'None yet'}
+              </p>
+            </div>
           </div>
 
           {/* Bio */}
@@ -348,6 +415,7 @@ function CustomersManagement() {
                         {c.firstName} {c.lastName}
                       </p>
                       {isDeleted && <DeletedBadge />}
+                      {!isDeleted && c.referredBy && <ReferredBadge />}
                     </div>
                     {c.phone && (
                       <p className="text-white/30 text-xs truncate mt-0.5">{c.phone}</p>

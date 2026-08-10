@@ -340,6 +340,11 @@ async function markAsPaid(referralId, adminId, { paymentReference, notes } = {})
   referral.notes            = notes ? notes.trim() : referral.notes;
 
   await referral.save();
+
+  // Notify the referrer that their commission has been paid
+  const { notifyReferralPaid } = require('../notifications/notification.service');
+  notifyReferralPaid(referral.referrer, referral.commissionAmount);
+
   return referral;
 }
 

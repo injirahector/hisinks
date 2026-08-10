@@ -27,14 +27,31 @@ function Avatar({ user }) {
 
 // ── Notification type icon colours ────────────────────────────────────────────
 const TYPE_STYLES = {
-  booking_confirmed:    { dot: 'bg-blue-400' },
-  booking_cancelled:    { dot: 'bg-red-400' },
-  booking_completed:    { dot: 'bg-green-400' },
-  consultation_reply:   { dot: 'bg-brand-accent' },
-  consultation_agreed:  { dot: 'bg-yellow-400' },
-  deposit_confirmed:    { dot: 'bg-green-400' },
-  deposit_rejected:     { dot: 'bg-red-400' },
-  direct_message_reply: { dot: 'bg-purple-400' },
+  // Booking
+  booking_pending:              { dot: 'bg-yellow-400' },
+  booking_confirmed:            { dot: 'bg-blue-400' },
+  booking_cancelled:            { dot: 'bg-red-400' },
+  booking_completed:            { dot: 'bg-green-400' },
+  // Consultation
+  consultation_reply:           { dot: 'bg-brand-accent' },
+  consultation_agreed:          { dot: 'bg-yellow-400' },
+  consultation_closed:          { dot: 'bg-white/40' },
+  // Deposit / payment
+  deposit_confirmed:            { dot: 'bg-green-400' },
+  deposit_rejected:             { dot: 'bg-red-400' },
+  admin_deposit_submitted:      { dot: 'bg-yellow-400' },
+  // Messages
+  direct_message_reply:         { dot: 'bg-purple-400' },
+  admin_direct_message:         { dot: 'bg-purple-400' },
+  // Reviews
+  artist_review_reply:          { dot: 'bg-brand-accent' },
+  // Referrals
+  referral_commission_eligible: { dot: 'bg-green-400' },
+  referral_paid:                { dot: 'bg-green-400' },
+  // Admin-facing
+  admin_new_booking:            { dot: 'bg-blue-400' },
+  admin_consultation_message:   { dot: 'bg-brand-accent' },
+  admin_new_review:             { dot: 'bg-yellow-400' },
 };
 
 // ── Notification bell + dropdown ──────────────────────────────────────────────

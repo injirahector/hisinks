@@ -1,6 +1,9 @@
 const Review = require('./review.model');
 const Booking = require('../bookings/booking.model');
-const { notifyAdminNewReview } = require('../notifications/notification.service');
+const {
+  notifyAdminNewReview,
+  notifyArtistReplyToReview,
+} = require('../notifications/notification.service');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function notFound(msg) {
@@ -186,6 +189,9 @@ async function replyToReview(reviewId, artistReply) {
     { path: 'customer', select: 'firstName lastName profileImage' },
     { path: 'appointment', select: 'preferredDate tattooIdea' },
   ]);
+
+  // Notify the customer that the artist replied to their review
+  notifyArtistReplyToReview(review.customer._id);
 
   return review;
 }

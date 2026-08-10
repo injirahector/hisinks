@@ -2,6 +2,7 @@ const Consultation = require('./consultation.model');
 const {
   notifyConsultationReply,
   notifyConsultationAgreed,
+  notifyConsultationClosed,
   notifyDepositConfirmed,
   notifyDepositRejected,
   notifyAdminConsultationMessage,
@@ -232,6 +233,8 @@ async function closeConsultation(consultationId) {
 
   c.status = 'closed';
   await c.save();
+  // Notify the customer their consultation has been closed
+  notifyConsultationClosed(c.userId);
   return c;
 }
 

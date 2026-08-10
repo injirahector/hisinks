@@ -27,7 +27,16 @@ function BookingCard({ booking, reviewed, onRate }) {
   const [lightbox, setLightbox] = useState(false);
   const s            = STATUS_STYLES[booking.status] || STATUS_STYLES.pending;
   const isCompleted  = booking.status === 'completed';
+  const isUpcoming   = booking.status === 'confirmed' || booking.status === 'pending';
   const hasReviewed  = reviewed.has(booking._id);
+
+  // Location-aware preparation text
+  const prepText =
+    booking.bookingLocation === 'house_call'
+      ? 'Preparing for your house-call appointment? Review our preparation guide before your session.'
+      : booking.bookingLocation === 'studio'
+      ? 'Preparing for your studio appointment? Review our preparation guide before your session.'
+      : 'Preparing for your appointment? Review our preparation guide so you arrive ready for your tattoo session.';
 
   return (
     <div className={`border ${open ? 'border-white/20' : 'border-white/8'} transition-colors`}>
@@ -57,6 +66,29 @@ function BookingCard({ booking, reviewed, onRate }) {
           <div className={`px-4 py-3 border ${s.border} ${s.bg}`}>
             <p className={`text-sm ${s.text}`}>{STATUS_MESSAGES[booking.status]}</p>
           </div>
+
+          {/* ── Before Appointment guide (upcoming bookings only) ── */}
+          {isUpcoming && (
+            <div className="flex items-center justify-between gap-4 px-4 py-3
+                            bg-brand-accent/5 border border-brand-accent/20">
+              <div className="min-w-0">
+                <p className="text-brand-accent text-xs uppercase tracking-widest mb-0.5">
+                  Before Your Appointment
+                </p>
+                <p className="text-white/50 text-xs leading-relaxed">
+                  {prepText}
+                </p>
+              </div>
+              <Link
+                to="/before-appointment"
+                aria-label="View Before Appointment preparation guide"
+                className="flex-shrink-0 text-xs tracking-widest uppercase border border-brand-accent/40
+                           text-brand-accent hover:bg-brand-accent/10 px-3 py-1.5 transition-colors whitespace-nowrap"
+              >
+                Prep Guide →
+              </Link>
+            </div>
+          )}
 
           {/* ── Rate prompt (completed, not yet reviewed) ── */}
           {isCompleted && !hasReviewed && (

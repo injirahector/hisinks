@@ -29,6 +29,7 @@ import MyReferrals from '../pages/MyReferrals';
 import ForgotPassword from '../pages/ForgotPassword';
 import ResetPassword from '../pages/ResetPassword';
 import Aftercare from '../pages/Aftercare';
+import BeforeAppointment from '../pages/BeforeAppointment';
 
 function AppRoutes() {
   return (
@@ -50,7 +51,8 @@ function AppRoutes() {
         <Route path="/register"          element={<Register />} />
         <Route path="/forgot-password"   element={<ForgotPassword />} />
         <Route path="/reset-password"    element={<ResetPassword />} />
-        <Route path="/aftercare"         element={<Aftercare />} />
+        <Route path="/aftercare"           element={<Aftercare />} />
+        <Route path="/before-appointment" element={<BeforeAppointment />} />
       </Route>
 
       {/* ── Authenticated customer routes ── */}

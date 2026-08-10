@@ -426,12 +426,19 @@ function QuickActions() {
 }
 
 // ─── Upcoming Appointment Card ────────────────────────────────────────────────
-function UpcomingAppointmentCard({ booking, consultation, loading }) {
+function UpcomingAppointmentCard({ booking, consultation, hasCompletedBooking = false, loading }) {
   if (loading) return <CardSkeleton />;
 
-  const hasConsultationDeposit = consultation?.depositStatus === 'paid';
+  const depositPaid    = consultation?.depositStatus === 'paid';
+  const depositPending = consultation?.depositStatus === 'pending';
+  // Show the card if there's a booking OR the consultation is active (deposit paid/pending or agreed)
+  // But suppress if a booking was already completed — the consultation cycle is done
+  const hasActiveConsultation = !hasCompletedBooking && (
+    depositPaid || depositPending ||
+    consultation?.status === 'agreed' || consultation?.status === 'deposit_pending'
+  );
 
-  if (!booking && !hasConsultationDeposit) {
+  if (!booking && !hasActiveConsultation) {
     return (
       <EmptyState
         title="No Upcoming Appointments"
@@ -449,52 +456,95 @@ function UpcomingAppointmentCard({ booking, consultation, loading }) {
   }
 
   const depositAmount = consultation?.depositAmount ?? 0;
-  const totalAmount = booking?.totalAmount ?? consultation?.totalAmount ?? 0;
-  const remaining = totalAmount - depositAmount;
+  const agreedPrice   = consultation?.agreedPrice ?? 0;
+  // If no booking yet, remaining = full agreed price minus deposit already paid
+  const totalAmount   = booking?.totalAmount ?? agreedPrice;
+  const remaining     = depositAmount > 0 ? totalAmount - depositAmount : 0;
+
+  // When deposit is paid but booking hasn't been created yet — show a "Ready to Book" state
+  const readyToBook = !booking && depositPaid;
+
+  // Title: prefer booking tattoo idea, fall back to consultation tattoo ref, then generic
+  const title = booking?.tattooIdea
+    || consultation?.tattooRef?.title
+    || (hasActiveConsultation ? 'Your Consultation' : 'Appointment');
 
   return (
     <div className="border border-brand-accent/30 bg-brand-accent/5 rounded-xl p-6 space-y-4">
       {/* Eyebrow */}
       <p className="text-brand-accent text-xs font-semibold uppercase tracking-[0.3em]">
-        Upcoming
+        {readyToBook ? 'Ready to Book' : 'Upcoming'}
       </p>
 
       {/* Title */}
-      <h3 className="font-display text-xl text-white">
-        {booking?.tattooIdea || 'Appointment'}
-      </h3>
+      <h3 className="font-display text-xl text-white">{title}</h3>
 
-      {/* Details grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div>
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Date</p>
-          <p className="text-white/80 text-sm">
-            {booking?.preferredDate ? fmtDate(booking.preferredDate) : '—'}
+      {/* Ready-to-book notice */}
+      {readyToBook && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-green-500/25 bg-green-500/8 px-4 py-3">
+          <svg className="h-4 w-4 shrink-0 mt-0.5 text-green-400" fill="none" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M6.5 10.5l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <p className="text-green-300 text-sm">
+            Your deposit is confirmed! You can now book your appointment date.
           </p>
         </div>
-        <div>
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Placement</p>
-          <p className="text-white/80 text-sm">{booking?.placement || '—'}</p>
-        </div>
-        <div>
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Size</p>
-          <p className="text-white/80 text-sm">{booking?.size || '—'}</p>
-        </div>
-        <div>
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Status</p>
-          {booking?.status ? <StatusBadge status={booking.status} /> : <span className="text-white/40 text-sm">—</span>}
-        </div>
-      </div>
+      )}
 
-      {/* Deposit / balance info */}
-      {consultation && (
-        <div className="flex flex-wrap gap-4 pt-2 border-t border-white/8">
-          {depositAmount > 0 && (
+      {/* Details grid — only show if booking exists */}
+      {booking ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Date</p>
+            <p className="text-white/80 text-sm">
+              {booking.preferredDate ? fmtDate(booking.preferredDate) : '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Placement</p>
+            <p className="text-white/80 text-sm">{booking.placement || '—'}</p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Size</p>
+            <p className="text-white/80 text-sm">{booking.size || '—'}</p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Status</p>
+            <StatusBadge status={booking.status} />
+          </div>
+        </div>
+      ) : (
+        /* No booking yet — show consultation progress instead */
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Consultation</p>
+            <p className="text-white/80 text-sm capitalize">
+              {readyToBook ? 'Deposit Paid' : (consultation?.status?.replace(/_/g, ' ') || '—')}
+            </p>
+          </div>
+          {agreedPrice > 0 && (
             <div>
-              <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Deposit Paid</p>
-              <p className="text-green-400 text-sm font-semibold">{fmtKsh(depositAmount)}</p>
+              <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Agreed Price</p>
+              <p className="text-white/80 text-sm">{fmtKsh(agreedPrice)}</p>
             </div>
           )}
+          {consultation?.tattooRef?.category && (
+            <div>
+              <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Style</p>
+              <p className="text-white/80 text-sm">{consultation.tattooRef.category}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Deposit / balance info */}
+      {depositAmount > 0 && (
+        <div className="flex flex-wrap gap-4 pt-2 border-t border-white/8">
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Deposit Paid</p>
+            <p className="text-green-400 text-sm font-semibold">{fmtKsh(depositAmount)}</p>
+          </div>
           {remaining > 0 && (
             <div>
               <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Remaining Balance</p>
@@ -506,6 +556,14 @@ function UpcomingAppointmentCard({ booking, consultation, loading }) {
 
       {/* Action row */}
       <div className="flex flex-wrap gap-2 pt-2">
+        {readyToBook && (
+          <Link
+            to="/book"
+            className="px-3 py-1.5 rounded-lg border border-brand-accent/40 bg-brand-accent/10 text-brand-accent text-xs font-semibold hover:bg-brand-accent/20 transition-colors"
+          >
+            Book Now
+          </Link>
+        )}
         <Link
           to="/my-bookings"
           className="px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 text-white/70 text-xs hover:border-white/30 hover:text-white transition-colors"
@@ -651,17 +709,17 @@ function ActivityTimeline({ bookings, reviews, consultation, loading }) {
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ data, loading }) {
-  const { bookings = [], consultation = null, reviews = [], notifications = [] } = data || {};
-
+function OverviewTab({ bookings = [], reviews = [], consultation = null, loading, unreadCount = 0, onTabChange }) {
   const completedCount = bookings.filter((b) => b.status === 'completed').length;
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Find next upcoming booking (confirmed or pending, soonest date)
   const upcomingBookings = bookings
     .filter((b) => b.status === 'confirmed' || b.status === 'pending')
     .sort((a, b) => new Date(a.preferredDate || a.createdAt) - new Date(b.preferredDate || b.createdAt));
   const nextBooking = upcomingBookings[0] || null;
+  const hasCompletedBooking = bookings.some((b) => b.status === 'completed');
+  const depositPaidForLabel = consultation?.depositStatus === 'paid';
+  const sectionLabel = (!nextBooking && depositPaidForLabel && !hasCompletedBooking) ? 'Your Consultation' : 'Next Appointment';
 
   return (
     <div className="space-y-10">
@@ -718,10 +776,11 @@ function OverviewTab({ data, loading }) {
 
       {/* Upcoming Appointment */}
       <div className="space-y-4">
-        <p className="text-brand-accent text-xs tracking-[0.3em] uppercase font-medium">Next Appointment</p>
+        <p className="text-brand-accent text-xs tracking-[0.3em] uppercase font-medium">{sectionLabel}</p>
         <UpcomingAppointmentCard
           booking={nextBooking}
           consultation={consultation}
+          hasCompletedBooking={hasCompletedBooking}
           loading={loading}
         />
       </div>

@@ -26,19 +26,24 @@ function StatCard({ label, value, accent, loading }) {
 }
 
 function AdminDashboard() {
-  const [tattoos, setTattoos]   = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
+  const [tattoos,      setTattoos]      = useState([]);
+  const [totalTattoos, setTotalTattoos] = useState(0);
+  const [bookings,     setBookings]     = useState([]);
+  const [totalBookings,setTotalBookings]= useState(0);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState('');
 
   useEffect(() => {
     Promise.all([
-      api.get('/tattoos?limit=5'),
-      api.get('/bookings?limit=100'),
+      api.get('/tattoos?limit=5'),          // recent 5 for the list preview
+      api.get('/bookings?limit=100'),        // up to 100 for status counts
     ])
       .then(([tRes, bRes]) => {
         setTattoos(tRes.data.data.tattoos);
+        // Use pagination.total for the real count, fall back to array length
+        setTotalTattoos(tRes.data.pagination?.total ?? tRes.data.data.tattoos.length);
         setBookings(bRes.data.data.bookings);
+        setTotalBookings(bRes.data.pagination?.total ?? bRes.data.data.bookings.length);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -61,7 +66,7 @@ function AdminDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-        <StatCard label="Total Tattoos"          value={tattoos.length} loading={loading} accent />
+        <StatCard label="Total Tattoos"          value={totalTattoos}   loading={loading} accent />
         <StatCard label="Pending Bookings"        value={pending}        loading={loading} />
         <StatCard label="Confirmed Appointments"  value={confirmed}      loading={loading} />
         <StatCard label="Completed"               value={completed}      loading={loading} />

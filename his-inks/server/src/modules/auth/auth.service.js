@@ -412,6 +412,7 @@ async function deleteAccount(userId, { confirmation, password } = {}) {
     {
       $set: {
         deletedAt:    new Date(),
+        deletedBy:    userId,   // self-delete: the customer is their own deletedBy
         firstName:    anonName,
         lastName:     '',
         email:        anonEmail,
@@ -494,6 +495,128 @@ async function deleteAccount(userId, { confirmation, password } = {}) {
   );
 }
 
+// ── Admin: Delete Customer Account ───────────────────────────────────────────
+//
+// Allows an administrator to soft-delete any customer account on their behalf
+// (e.g. when a customer requests deletion but cannot access their own account).
+//
+// Reuses the same anonymization pipeline as deleteAccount():
+//   - skips password verification (admin is already authenticated)
+//   - skips active-booking / active-consultation checks (admin decision)
+//   - records deletedBy (admin id) and optional deletionReason
+//
+// Security model:
+//   - adminId must be a verified admin (enforced by protect + restrictTo in route)
+//   - targetId comes from the URL param — never from the request body
+//   - Cannot be used on admin accounts
+//
+async function adminDeleteAccount(adminId, targetId, { deletionReason } = {}) {
+  // ── 1. Load the target user ───────────────────────────────────────────────
+  const user = await User.findById(targetId).select('+deletedAt');
+  if (!user) {
+    const err = new Error('Customer not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Only customer accounts may be deleted via this endpoint
+  if (user.role !== 'customer') {
+    const err = new Error('Only customer accounts can be deleted by an admin.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // Already deleted — idempotent guard
+  if (user.deletedAt) {
+    const err = new Error('This account has already been deleted.');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // ── 2. Build anonymized identifier (same scheme as self-delete) ───────────
+  const anonId    = targetId.toString().slice(-8);
+  const anonEmail = `deleted-user-${anonId}@deleted.local`;
+  const anonName  = 'Deleted User';
+
+  // ── 3. Anonymize the User document ───────────────────────────────────────
+  await User.findByIdAndUpdate(
+    targetId,
+    {
+      $set: {
+        deletedAt:      new Date(),
+        deletedBy:      adminId,
+        deletionReason: deletionReason ? deletionReason.trim() : null,
+        firstName:      anonName,
+        lastName:       '',
+        email:          anonEmail,
+        profileImage:   null,
+        bio:            null,
+        location:       null,
+        authProvider:   'local',
+      },
+      $unset: {
+        phone:                '',
+        googleId:             '',
+        referralCode:         '',
+        password:             '',
+        passwordResetToken:   '',
+        passwordResetExpires: '',
+      },
+    },
+    { runValidators: false }
+  );
+
+  // ── 4. Anonymize Bookings ─────────────────────────────────────────────────
+  const Booking = getBooking();
+  await Booking.updateMany(
+    { userId: targetId },
+    {
+      $set: {
+        customerName: anonName,
+        email:        anonEmail,
+        phone:        'removed',
+      },
+      $unset: { userId: '' },
+    }
+  );
+
+  // ── 5. Anonymize Consultations ────────────────────────────────────────────
+  const Consultation = getConsultation();
+  await Consultation.updateMany(
+    { userId: targetId },
+    {
+      $set: {
+        customerName: anonName,
+        email:        anonEmail,
+        phone:        'removed',
+      },
+    }
+  );
+
+  // ── 6. Anonymize MessageThread ────────────────────────────────────────────
+  const MessageThread = getMessageThread();
+  await MessageThread.updateMany(
+    { userId: targetId },
+    {
+      $set: {
+        customerName: anonName,
+        email:        anonEmail,
+        phone:        'removed',
+      },
+    }
+  );
+
+  // ── 7. Delete Notifications ───────────────────────────────────────────────
+  const Notification = getNotification();
+  await Notification.deleteMany({ userId: targetId });
+
+  // ── 8. Audit log ──────────────────────────────────────────────────────────
+  console.info(
+    `[ADMIN_ACCOUNT_DELETED] adminId=${adminId} targetUserId=${targetId} ` +
+    `reason="${deletionReason || ''}" timestamp=${new Date().toISOString()}`
+  );
+}
+
 module.exports = {
   register,
   login,
@@ -502,4 +625,5 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   deleteAccount,
+  adminDeleteAccount,
 };

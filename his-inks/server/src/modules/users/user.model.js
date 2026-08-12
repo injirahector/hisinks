@@ -139,6 +139,27 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+
+    // The User._id of whoever performed the deletion.
+    // Populated for both self-deletes (customer's own id) and admin-initiated
+    // deletes (admin's id).  Never exposed in normal queries.
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      select: false,
+    },
+
+    // Free-text reason recorded by an admin when deleting a customer account.
+    // Optional — left null for self-deletes.
+    // select: false — only visible in explicit admin audit queries.
+    deletionReason: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Deletion reason cannot exceed 500 characters'],
+      default: null,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -160,15 +181,17 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // ── Instance method: safe public object (no password) ────────────────────────
-// deletedAt is included so admin-facing responses can show deletion status.
-// It is never returned to regular customers because protect() blocks deleted
-// accounts before they reach any route handler.
+// deletedAt / deletedBy / deletionReason are included so admin-facing responses
+// can show deletion status.  They are never returned to regular customers because
+// protect() blocks deleted accounts before they reach any route handler.
 userSchema.methods.toSafeObject = function () {
   const obj = this.toObject();
   delete obj.password;
-  // Ensure deletedAt is present even when the field was select:false on the query
-  // (toObject() only includes fields that were actually loaded)
-  if (obj.deletedAt === undefined) obj.deletedAt = this.deletedAt ?? null;
+  // Ensure soft-delete fields are present even when the field was select:false
+  // on the query (toObject() only includes fields that were actually loaded).
+  if (obj.deletedAt        === undefined) obj.deletedAt        = this.deletedAt        ?? null;
+  if (obj.deletedBy        === undefined) obj.deletedBy        = this.deletedBy        ?? null;
+  if (obj.deletionReason   === undefined) obj.deletionReason   = this.deletionReason   ?? null;
   return obj;
 };
 

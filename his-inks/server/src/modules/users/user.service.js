@@ -57,7 +57,7 @@ async function resolveReferredBy(referredByValue) {
 // ── Get user by id ─────────────────────────────────────────────────────────────
 // Populates referredBy and referral counts for the admin customer drawer.
 async function getUserById(userId) {
-  const user = await User.findById(userId).select('+deletedAt');
+  const user = await User.findById(userId).select('+deletedAt +deletedBy +deletionReason');
   if (!user) {
     const err = new Error('User not found.');
     err.statusCode = 404;
@@ -68,6 +68,20 @@ async function getUserById(userId) {
 
   // Resolve referredBy safely (handles deletedAt which select:false blocks in populate)
   obj.referredBy = await resolveReferredBy(user.referredBy);
+
+  // Resolve deletedBy — fetch the admin who deleted this account
+  if (obj.deletedBy) {
+    const deletedByUser = await User.findById(obj.deletedBy)
+      .select('firstName lastName email')
+      .lean();
+    if (deletedByUser) {
+      obj.deletedByUser = {
+        _id: deletedByUser._id,
+        displayName: `${deletedByUser.firstName} ${deletedByUser.lastName}`.trim(),
+        email: deletedByUser.email,
+      };
+    }
+  }
 
   // Count how many customers this user has referred (all statuses)
   obj.referralCount = await Referral.countDocuments({ referrer: userId });
@@ -112,7 +126,7 @@ async function getAllUsers({ search = '', page = 1, limit = 20, deleted } = {}) 
 
   const [users, total] = await Promise.all([
     User.find(filter)
-      .select('+deletedAt')
+      .select('+deletedAt +deletedBy +deletionReason')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit),

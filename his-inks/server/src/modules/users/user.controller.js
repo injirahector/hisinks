@@ -1,6 +1,7 @@
 const userService = require('./user.service');
 const { validateProfileUpdate } = require('./user.validation');
 const bookingService = require('../bookings/booking.service');
+const { adminDeleteAccount } = require('../auth/auth.service');
 
 // ── GET /api/users/me ─────────────────────────────────────────────────────────
 async function getMe(req, res, next) {
@@ -72,4 +73,21 @@ async function getMyBookings(req, res, next) {
   }
 }
 
-module.exports = { getMe, updateMe, getAllUsers, getUserById, getMyBookings };
+// ── DELETE /api/users/:id  (admin only) ───────────────────────────────────────
+// Soft-deletes a customer account on behalf of an administrator.
+// The admin's identity is taken from req.user (verified JWT) — never from the body.
+// Body: { deletionReason?: string }
+async function deleteCustomer(req, res, next) {
+  try {
+    const deletionReason = req.body?.deletionReason ?? null;
+    await adminDeleteAccount(req.user._id, req.params.id, { deletionReason });
+    return res.status(200).json({
+      success: true,
+      message: 'Customer account has been successfully deleted.',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getMe, updateMe, getAllUsers, getUserById, getMyBookings, deleteCustomer };

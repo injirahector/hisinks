@@ -59,15 +59,134 @@ function ReferredBadge() {
   );
 }
 
+// ── Delete confirmation modal ─────────────────────────────────────────────────
+function DeleteConfirmationModal({ customer, onConfirm, onCancel, isLoading }) {
+  const [confirmText, setConfirmText] = useState('');
+  const [reason, setReason] = useState('');
+  const canConfirm = confirmText === 'DELETE';
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+      <div className="bg-[#111] border border-white/10 rounded-lg w-full max-w-md mx-4 shadow-2xl">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-white/8">
+          <p className="text-white font-display text-lg">Delete Customer Account</p>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-6 space-y-4">
+          <div className="flex items-start gap-3 rounded-lg border border-red-500/25 bg-red-500/8 px-4 py-3">
+            <svg className="h-5 w-5 shrink-0 mt-0.5 text-red-400" fill="none"
+              viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0
+                   2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898
+                   0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            <div>
+              <p className="text-red-300 text-sm font-medium">This action cannot be undone</p>
+              <p className="text-red-400/60 text-xs mt-0.5">
+                The account will be deactivated and removed from active use. Personal data will be
+                anonymized, but historical records will be preserved for reporting and auditing.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-white text-sm mb-2">
+              <span className="font-medium">Customer:</span> {customer.firstName} {customer.lastName}
+            </p>
+            <p className="text-white/60 text-xs">{customer.email}</p>
+          </div>
+
+          <div>
+            <label className="block text-white/30 text-xs tracking-widest uppercase mb-2">
+              Reason for deletion (optional)
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g., Customer requested deletion, Account compromised, etc."
+              maxLength={500}
+              className="w-full bg-white/5 border border-white/10 px-3 py-2 text-white text-sm
+                         placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors
+                         resize-none"
+              rows={3}
+              disabled={isLoading}
+            />
+            <p className="text-white/20 text-xs mt-1">{reason.length}/500</p>
+          </div>
+
+          <div>
+            <label className="block text-white/30 text-xs tracking-widest uppercase mb-2">
+              Type DELETE to confirm
+            </label>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
+              placeholder="Type DELETE"
+              className="w-full bg-white/5 border border-white/10 px-3 py-2 text-white text-sm
+                         placeholder-white/20 focus:outline-none focus:border-red-400/60 transition-colors"
+              disabled={isLoading}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/8">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-xs tracking-widest uppercase border border-white/10
+                       text-white/50 hover:text-white hover:border-white/30 transition-colors
+                       disabled:opacity-30"
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(confirmText, reason)}
+            disabled={!canConfirm || isLoading}
+            className="px-4 py-2 text-xs tracking-widest uppercase border border-red-500/50
+                       bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500/70
+                       transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'Deleting...' : 'Delete Account'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Customer detail drawer ────────────────────────────────────────────────────
-function CustomerDrawer({ customer, onClose }) {
+function CustomerDrawer({ customer, onClose, onDeleteSuccess }) {
   const isDeleted = Boolean(customer.deletedAt);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e) => { if (e.key === 'Escape' && !showDeleteModal) onClose(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [onClose, showDeleteModal]);
+
+  const handleDeleteConfirm = async (confirmText, reason) => {
+    setIsDeleting(true);
+    setError('');
+    try {
+      await api.delete(`/users/${customer._id}`, {
+        data: { deletionReason: reason || null },
+      });
+      setShowDeleteModal(false);
+      onDeleteSuccess?.();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to delete account');
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -92,20 +211,49 @@ function CustomerDrawer({ customer, onClose }) {
 
           {/* Deleted banner */}
           {isDeleted && (
-            <div className="flex items-start gap-3 rounded-lg border border-red-500/25 bg-red-500/8 px-4 py-3">
-              <svg className="h-4 w-4 shrink-0 mt-0.5 text-red-400" fill="none"
-                viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0
-                     2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898
-                     0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-              </svg>
-              <div>
-                <p className="text-red-300 text-sm font-medium">Account Deleted</p>
-                <p className="text-red-400/60 text-xs mt-0.5">
-                  Deleted on {fmtDate(customer.deletedAt)}. Personal data has been
-                  anonymized. Historical records are preserved.
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-lg border border-red-500/25 bg-red-500/8 px-4 py-3">
+                <svg className="h-4 w-4 shrink-0 mt-0.5 text-red-400" fill="none"
+                  viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0
+                       2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898
+                       0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <div>
+                  <p className="text-red-300 text-sm font-medium">Account Deleted</p>
+                  <p className="text-red-400/60 text-xs mt-0.5">
+                    Personal data has been anonymized. Historical records are preserved.
+                  </p>
+                </div>
+              </div>
+
+              {/* Deletion details section */}
+              <div className="border border-white/10 rounded-lg px-4 py-3 space-y-3 bg-white/[0.01]">
+                <Field
+                  label="Deleted On"
+                  value={fmtDate(customer.deletedAt)}
+                  valueClass="text-red-400"
+                />
+                {customer.deletedByUser ? (
+                  <div>
+                    <p className="text-white/30 text-xs tracking-widest uppercase mb-1">Deleted By</p>
+                    <p className="text-white/70 text-sm">{customer.deletedByUser.displayName}</p>
+                    <p className="text-white/35 text-xs mt-0.5">{customer.deletedByUser.email}</p>
+                  </div>
+                ) : customer.deletedBy ? (
+                  <Field
+                    label="Deleted By"
+                    value="Admin"
+                    valueClass="text-white/70"
+                  />
+                ) : null}
+                {customer.deletionReason && (
+                  <div>
+                    <p className="text-white/30 text-xs tracking-widest uppercase mb-1">Reason</p>
+                    <p className="text-white/60 text-sm break-words">{customer.deletionReason}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -138,13 +286,6 @@ function CustomerDrawer({ customer, onClose }) {
             <Field label="Phone"    value={customer.phone || '—'} />
             <Field label="Location" value={customer.location || '—'} />
             <Field label="Joined"   value={fmtDate(customer.createdAt)} />
-            {isDeleted && (
-              <Field
-                label="Deleted On"
-                value={fmtDate(customer.deletedAt)}
-                valueClass="text-red-400"
-              />
-            )}
             <Field
               label="Verified"
               value={customer.isVerified ? 'Yes' : 'No'}
@@ -213,7 +354,36 @@ function CustomerDrawer({ customer, onClose }) {
               <p className="text-white/60 text-sm leading-relaxed">{customer.bio}</p>
             </div>
           )}
+
+          {/* Delete button (only for active accounts) */}
+          {!isDeleted && (
+            <div className="border-t border-white/8 pt-5">
+              {error && (
+                <div className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+                  {error}
+                </div>
+              )}
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="w-full px-4 py-2.5 text-xs tracking-widest uppercase border border-red-500/30
+                           bg-red-500/8 text-red-400 hover:bg-red-500/15 hover:border-red-500/50
+                           transition-colors font-medium"
+              >
+                Delete Account
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Confirmation modal */}
+        {showDeleteModal && (
+          <DeleteConfirmationModal
+            customer={customer}
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => setShowDeleteModal(false)}
+            isLoading={isDeleting}
+          />
+        )}
       </div>
     </div>
   );
@@ -481,7 +651,11 @@ function CustomersManagement() {
 
       {/* ── Detail drawer ──────────────────────────────────────────────────── */}
       {selected && (
-        <CustomerDrawer customer={selected} onClose={() => setSelected(null)} />
+        <CustomerDrawer
+          customer={selected}
+          onClose={() => setSelected(null)}
+          onDeleteSuccess={() => load(page, debouncedSearch, deletedFilter)}
+        />
       )}
     </div>
   );

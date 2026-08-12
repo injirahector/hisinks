@@ -45,6 +45,9 @@ async function createBooking(data, userId = null) {
     bookingLocation: data.bookingLocation ? data.bookingLocation.trim() : null,
     userId,
     status:          initialStatus,
+    // Link back to the consultation that led to this booking
+    // Preserves the traceability from inspiration → consultation → booking
+    consultationId: consultation ? consultation._id : null,
   });
 
   // Link consultation to this booking and mark it as booked
@@ -85,7 +88,11 @@ async function getAllBookings({ status, page = 1, limit = 20 } = {}) {
   const skip = (page - 1) * limit;
 
   const [bookings, total] = await Promise.all([
-    Booking.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Booking.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('consultationId', 'inspirationRef tattooRef customerName'),
     Booking.countDocuments(filter),
   ]);
 
@@ -102,7 +109,8 @@ async function getAllBookings({ status, page = 1, limit = 20 } = {}) {
 
 // ── Get one booking (admin) ───────────────────────────────────────────────────
 async function getBookingById(id) {
-  const booking = await Booking.findById(id);
+  const booking = await Booking.findById(id)
+    .populate('consultationId', 'inspirationRef tattooRef customerName messages agreedPrice');
   if (!booking) {
     const err = new Error('Booking not found.');
     err.statusCode = 404;

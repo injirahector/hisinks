@@ -9,9 +9,10 @@ const NAV_LINKS = [
 
 // Extra nav links shown only when a user is logged in
 const AUTH_NAV_LINKS = [
-  { label: 'Portfolio', to: '/portfolio' },
-  { label: 'About',     to: '/about' },
-  { label: 'Contact',   to: '/contact' },
+  { label: 'Portfolio',   to: '/portfolio' },
+  { label: 'Inspiration', to: '/inspiration' },
+  { label: 'About',       to: '/about' },
+  { label: 'Contact',     to: '/contact' },
 ];
 
 // ── Avatar initials ───────────────────────────────────────────────────────────

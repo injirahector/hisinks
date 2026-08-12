@@ -88,6 +88,15 @@ const bookingSchema = new mongoose.Schema(
       },
       default: null,
     },
+
+    // Optional — linked consultation that led to this booking
+    // Preserves the relationship from consultation → booking
+    // Allows tracing back to original inspiration/tattoo reference
+    consultationId: {
+      type: require('mongoose').Schema.Types.ObjectId,
+      ref: 'Consultation',
+      default: null,
+    },
   },
   {
     timestamps: true,

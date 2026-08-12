@@ -96,6 +96,18 @@ const consultationSchema = new mongoose.Schema(
       category:    { type: String, default: null },
       description: { type: String, default: null },
     },
+
+    // Optional inspiration reference from inspiration gallery — set on first message
+    // when customer arrives via inspiration details page
+    inspirationRef: {
+      _id:          { type: mongoose.Schema.Types.ObjectId, ref: 'Inspiration', default: null },
+      title:        { type: String, default: null },
+      image:        { type: String, default: null },
+      category:     { type: String, default: null },
+      description:  { type: String, default: null },
+      estimatedSize: { type: String, default: null },
+      suggestedPlacement: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );

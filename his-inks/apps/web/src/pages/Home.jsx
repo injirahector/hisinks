@@ -615,6 +615,37 @@ function Home() {
       </section>
       )}
 
+      {/* ── Inspiration Section ──────────────────────────────────────────── */}
+      <section className="relative overflow-hidden border-t border-white/5 py-24 md:py-32">
+        <div className="absolute inset-0 bg-brand-bg" />
+        <div className="relative z-10 max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-8 h-px bg-brand-accent" />
+              <p className="text-brand-accent tracking-[0.4em] uppercase text-xs">Explore</p>
+              <div className="w-8 h-px bg-brand-accent" />
+            </div>
+            <h2 className="font-display text-4xl md:text-5xl mb-4 leading-tight">
+              Need <span className="italic text-brand-accent">Inspiration?</span>
+            </h2>
+            <p className="text-white/60 max-w-2xl mx-auto leading-relaxed">
+              Not sure what tattoo you want? Browse our inspiration gallery to explore different styles,
+              discover ideas, and find inspiration for your next piece. Whether you already have a concept
+              or you&apos;re starting from scratch, we&apos;re here to help you create something unique.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link to="/inspiration" className="btn-primary px-12 py-4">
+              Explore Inspiration
+            </Link>
+            <Link to="/my-consultation" className="btn-outline px-12 py-4">
+              Book a Consultation
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Final CTA ────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-t border-white/5 py-32">
         <div className="absolute inset-0 bg-brand-bg" />

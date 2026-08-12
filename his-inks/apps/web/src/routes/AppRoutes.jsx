@@ -5,6 +5,7 @@ import Login from '../pages/Login';
 import Register from '../pages/Register';
 import BookingPage from '../pages/BookingPage';
 import Portfolio from '../pages/Portfolio';
+import InspirationGallery from '../pages/InspirationGallery';
 import About from '../pages/About';
 import Contact from '../pages/Contact';
 import MyBookings from '../pages/MyBookings';
@@ -25,6 +26,7 @@ import MessagesManagement from '../pages/admin/MessagesManagement';
 import ReportsAnalytics from '../pages/admin/ReportsAnalytics';
 import CustomersManagement from '../pages/admin/CustomersManagement';
 import ReferralsManagement from '../pages/admin/ReferralsManagement';
+import InspirationsManagement from '../pages/admin/InspirationsManagement';
 import MyReferrals from '../pages/MyReferrals';
 import ForgotPassword from '../pages/ForgotPassword';
 import ResetPassword from '../pages/ResetPassword';
@@ -39,6 +41,7 @@ function AppRoutes() {
         <Route path="/"                  element={<Home />} />
         <Route path="/book"              element={<BookingPage />} />
         <Route path="/portfolio"         element={<Portfolio />} />
+        <Route path="/inspiration"       element={<InspirationGallery />} />
         <Route path="/about"             element={<About />} />
         <Route path="/contact"           element={<Contact />} />
         <Route path="/my-bookings"       element={<MyBookings />} />
@@ -67,6 +70,7 @@ function AppRoutes() {
         <Route element={<AdminLayout />}>
           <Route path="/admin"                    element={<AdminDashboard />} />
           <Route path="/admin/tattoos"            element={<TattoosManagement />} />
+          <Route path="/admin/inspirations"       element={<InspirationsManagement />} />
           <Route path="/admin/bookings"           element={<BookingsManagement />} />
           <Route path="/admin/consultations"      element={<ConsultationsManagement />} />
           <Route path="/admin/reviews"            element={<ReviewsManagement />} />

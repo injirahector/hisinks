@@ -1,4 +1,5 @@
 const Consultation = require('./consultation.model');
+const Inspiration = require('../inspiration/inspiration.model');
 const {
   notifyConsultationReply,
   notifyConsultationAgreed,
@@ -55,7 +56,8 @@ async function createConsultation(user) {
 // ── Customer: send a message ──────────────────────────────────────────────────
 // If no active consultation exists (none yet, or latest is booked/closed),
 // one is created here — on first message, never on page load.
-async function customerSendMessage(user, text, tattooRef) {
+// If inspirationId is provided, validates it exists and attaches full inspiration data.
+async function customerSendMessage(user, text, tattooRef, inspirationId) {
   let c = await latestForUser(user._id);
 
   const needsNew = !c || c.status === 'booked' || c.status === 'closed';
@@ -79,6 +81,48 @@ async function customerSendMessage(user, text, tattooRef) {
     if (tattooRef.category)    lines.push(`Category: ${tattooRef.category}`);
     if (tattooRef.description) lines.push(`Description: ${tattooRef.description}`);
     if (tattooRef.image)       lines.push(`Image: ${tattooRef.image}`);
+
+    c.messages.push({ sender: 'customer', text: lines.join('\n') });
+  }
+
+  // Handle inspirationId on the very first message of a fresh consultation
+  // Validate that the inspiration exists in the database first
+  if (inspirationId && !c.inspirationRef?._id && c.messages.length === 0) {
+    let inspiration;
+    try {
+      inspiration = await Inspiration.findById(inspirationId);
+    } catch (err) {
+      const e = new Error('Invalid inspiration ID format.');
+      e.statusCode = 422;
+      throw e;
+    }
+
+    if (!inspiration) {
+      const e = new Error('The selected inspiration no longer exists.');
+      e.statusCode = 404;
+      throw e;
+    }
+
+    // Store the inspiration reference with full data from database
+    // (not trusting client-supplied data)
+    c.inspirationRef = {
+      _id:                inspiration._id,
+      title:              inspiration.title,
+      image:              inspiration.image,
+      category:           inspiration.category,
+      description:        inspiration.description || null,
+      estimatedSize:      inspiration.estimatedSize || null,
+      suggestedPlacement: inspiration.suggestedPlacement || null,
+    };
+
+    // Build a clear reference message visible to admin in the thread
+    const lines = ['🎨 Selected Inspiration:'];
+    lines.push(`Title: ${inspiration.title}`);
+    lines.push(`Style: ${inspiration.category}`);
+    if (inspiration.description)      lines.push(`Description: ${inspiration.description}`);
+    if (inspiration.estimatedSize)    lines.push(`Suggested Size: ${inspiration.estimatedSize}`);
+    if (inspiration.suggestedPlacement) lines.push(`Suggested Placement: ${inspiration.suggestedPlacement}`);
+    lines.push(`Image: ${inspiration.image}`);
 
     c.messages.push({ sender: 'customer', text: lines.join('\n') });
   }

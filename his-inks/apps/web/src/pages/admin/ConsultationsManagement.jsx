@@ -321,6 +321,55 @@ function ConsultationsManagement() {
               </span>
             </div>
 
+            {/* Inspiration reference card — prominently displayed for artist */}
+            {selected.inspirationRef?._id && (
+              <div className="px-6 py-4 border-b border-brand-accent/20 bg-brand-accent/5">
+                <div className="flex gap-4 items-start">
+                  {selected.inspirationRef.image && (
+                    <div className="flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewSrc(selected.inspirationRef.image)}
+                        className="block border border-brand-accent/30 hover:border-brand-accent transition-colors"
+                        aria-label="Preview inspiration image"
+                      >
+                        <img
+                          src={selected.inspirationRef.image}
+                          alt={selected.inspirationRef.title}
+                          className="w-24 h-24 object-cover hover:opacity-80 transition-opacity"
+                        />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-brand-accent text-xs tracking-widest uppercase font-medium mb-1">
+                      🎨 Selected Inspiration
+                    </p>
+                    <p className="text-white font-medium text-sm mb-1">{selected.inspirationRef.title}</p>
+                    {selected.inspirationRef.category && (
+                      <p className="text-white/60 text-xs mb-0.5">Style: {selected.inspirationRef.category}</p>
+                    )}
+                    {selected.inspirationRef.description && (
+                      <p className="text-white/50 text-xs mb-1">{selected.inspirationRef.description}</p>
+                    )}
+                    {(selected.inspirationRef.estimatedSize || selected.inspirationRef.suggestedPlacement) && (
+                      <div className="text-white/40 text-xs space-y-0.5">
+                        {selected.inspirationRef.estimatedSize && (
+                          <p>Suggested Size: {selected.inspirationRef.estimatedSize}</p>
+                        )}
+                        {selected.inspirationRef.suggestedPlacement && (
+                          <p>Suggested Placement: {selected.inspirationRef.suggestedPlacement}</p>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-white/30 text-xs mt-2">
+                      Use this as your reference for discussing the design with the customer.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               {selected.messages.length === 0 && (
@@ -328,7 +377,85 @@ function ConsultationsManagement() {
               )}
               {selected.messages.map(msg => {
                 const isAdmin = msg.sender === 'admin';
-                // Render image URLs as clickable thumbnails; plain lines as text
+                
+                // Check if this is an inspiration reference message
+                const isInspirationRef = msg.text.startsWith('🎨 Selected Inspiration:') || msg.text.startsWith('🎨 Inspiration Reference:');
+                
+                if (isInspirationRef && selected.inspirationRef?.image) {
+                  // Render inspiration reference as a professional card in the thread
+                  return (
+                    <div key={msg._id} className="flex justify-start">
+                      <div className="w-full max-w-[80%]">
+                        <span className="text-[10px] uppercase tracking-wider text-white/30">
+                          {selected.customerName}
+                        </span>
+                        <div className="mt-1 border border-brand-accent/30 bg-brand-accent/5 rounded-lg overflow-hidden">
+                          {/* Inspiration image */}
+                          <div className="relative bg-black/40 aspect-video overflow-hidden group cursor-pointer">
+                            <img
+                              src={selected.inspirationRef.image}
+                              alt={selected.inspirationRef.title}
+                              className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                              onClick={() => setPreviewSrc(selected.inspirationRef.image)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPreviewSrc(selected.inspirationRef.image)}
+                              className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Preview inspiration image"
+                            >
+                              <span className="text-white text-[10px] px-2 py-1 bg-black/60 border border-white/20">
+                                Preview
+                              </span>
+                            </button>
+                          </div>
+                          
+                          {/* Inspiration details */}
+                          <div className="p-4 space-y-2">
+                            <div>
+                              <p className="text-brand-accent text-xs tracking-widest uppercase font-medium mb-1">
+                                🎨 Selected Inspiration
+                              </p>
+                              <p className="text-white font-medium">{selected.inspirationRef.title}</p>
+                            </div>
+                            
+                            {selected.inspirationRef.category && (
+                              <p className="text-white/60 text-xs">
+                                <span className="text-white/40">Style: </span>
+                                {selected.inspirationRef.category}
+                              </p>
+                            )}
+                            
+                            {selected.inspirationRef.description && (
+                              <p className="text-white/60 text-xs">
+                                <span className="text-white/40">Description: </span>
+                                {selected.inspirationRef.description}
+                              </p>
+                            )}
+                            
+                            <div className="flex gap-4 text-xs text-white/60 pt-1">
+                              {selected.inspirationRef.estimatedSize && (
+                                <div>
+                                  <span className="text-white/40">Size: </span>
+                                  {selected.inspirationRef.estimatedSize}
+                                </div>
+                              )}
+                              {selected.inspirationRef.suggestedPlacement && (
+                                <div>
+                                  <span className="text-white/40">Placement: </span>
+                                  {selected.inspirationRef.suggestedPlacement}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-white/20 block mt-1">{formatTime(msg.createdAt)}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                // Regular message rendering
                 const renderText = (text) =>
                   text.split('\n').map((line, i) => {
                     const trimmed = line.trim();

@@ -18,12 +18,18 @@ function MyConsultation() {
   const bottomRef = useRef(null);
 
   // tattooRef passed from Portfolio via router state
+  // inspirationId passed from Inspiration Gallery via router state (only the ID)
   const routeTattooRef = location.state?.tattooRef || null;
+  const routeInspirationId = location.state?.inspirationId || null;
 
   // null  = no consultation yet (or user cleared it to start a new one)
   // false = still loading
   const [consultation, setConsultation] = useState(false);
   const [loadErr, setLoadErr]           = useState('');
+  
+  // Inspiration data fetched from database if passed via route
+  const [routeInspirationData, setRouteInspirationData] = useState(null);
+  const [inspirationLoadErr, setInspirationLoadErr] = useState('');
 
   const [text, setText]     = useState('');
   const [sending, setSending] = useState(false);
@@ -75,7 +81,7 @@ function MyConsultation() {
   const [depositSending, setDepositSending] = useState(false);
   const [depositMsg, setDepositMsg]         = useState('');
 
-  // Redirect if not logged in — preserve tattooRef in the login state so it
+  // Redirect if not logged in — preserve tattooRef/inspirationId in the login state so it
   // survives the login redirect and comes back to /my-consultation
   useEffect(() => {
     if (!authLoading && !user) {
@@ -83,6 +89,7 @@ function MyConsultation() {
         state: {
           from: '/my-consultation',
           tattooRef: routeTattooRef,
+          inspirationId: routeInspirationId,
         },
       });
     }
@@ -94,9 +101,9 @@ function MyConsultation() {
     api.get('/consultations/my')
       .then(res => {
         const c = res.data.data.consultation;
-        // If arriving from Portfolio with a tattooRef, always auto-start a new
-        // consultation — regardless of the current consultation's status
-        if (routeTattooRef) {
+        // If arriving from Portfolio with a tattooRef or from Gallery with inspirationId,
+        // always auto-start a new consultation — regardless of the current consultation's status
+        if (routeTattooRef || routeInspirationId) {
           setConsultation(null);
         } else {
           setConsultation(c);
@@ -104,6 +111,19 @@ function MyConsultation() {
       })
       .catch(() => { setLoadErr('Could not load your consultation. Please try again.'); setConsultation(null); });
   }, [user]);
+
+  // Fetch inspiration data if inspirationId provided
+  useEffect(() => {
+    if (!routeInspirationId) return;
+    
+    api.get(`/inspirations/${routeInspirationId}`)
+      .then(res => {
+        setRouteInspirationData(res.data.data.inspiration);
+      })
+      .catch(() => {
+        setInspirationLoadErr('Could not load the inspiration. It may have been deleted.');
+      });
+  }, [routeInspirationId]);
 
   // Auto-scroll to bottom when messages arrive
   useEffect(() => {
@@ -127,10 +147,15 @@ function MyConsultation() {
 
       const isNewThread = !consultation ||
         consultation === null ||
-        (consultation.messages?.length === 0 && !consultation.tattooRef?.image);
+        (consultation.messages?.length === 0 && !consultation.tattooRef?.image && !consultation.inspirationRef?._id);
       const payload = { text: imageUrl ? `${text}\n${imageUrl}`.trim() : text };
       if (isNewThread && routeTattooRef) {
         payload.tattooRef = routeTattooRef;
+      }
+      // Pass only the inspirationId (not the full object)
+      // Service will validate and fetch from database
+      if (isNewThread && routeInspirationId) {
+        payload.inspirationId = routeInspirationId;
       }
       const res = await api.post('/consultations/my/messages', payload);
       setConsultation(res.data.data.consultation);
@@ -234,6 +259,38 @@ function MyConsultation() {
                   This reference will be attached to your consultation automatically.
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Inspiration reference card — shown when arriving from Inspiration Gallery */}
+          {routeInspirationData && (
+            <div className="mb-6 border border-brand-accent/30 bg-brand-accent/5 flex gap-4 p-4">
+              <img
+                src={routeInspirationData.image}
+                alt={routeInspirationData.title}
+                className="w-20 h-20 object-cover flex-shrink-0 border border-brand-accent/20"
+              />
+              <div className="min-w-0">
+                <p className="text-brand-accent text-xs tracking-widest uppercase mb-1">🎨 Selected Inspiration</p>
+                <p className="text-white font-medium text-sm truncate">{routeInspirationData.title}</p>
+                {routeInspirationData.category && (
+                  <p className="text-white/40 text-xs">{routeInspirationData.category}</p>
+                )}
+                {routeInspirationData.estimatedSize && (
+                  <p className="text-white/30 text-xs">Suggested Size: {routeInspirationData.estimatedSize}</p>
+                )}
+                {routeInspirationData.suggestedPlacement && (
+                  <p className="text-white/30 text-xs">Suggested Placement: {routeInspirationData.suggestedPlacement}</p>
+                )}
+                <p className="text-white/25 text-xs mt-2">
+                  This inspiration has been attached to your consultation.
+                </p>
+              </div>
+            </div>
+          )}
+          {inspirationLoadErr && (
+            <div className="mb-6 border border-red-500/30 bg-red-500/5 p-4">
+              <p className="text-red-400 text-xs">{inspirationLoadErr}</p>
             </div>
           )}
 
@@ -383,6 +440,30 @@ function MyConsultation() {
           </div>
         )}
 
+        {/* Inspiration reference card — shown if consultation originated from inspiration gallery */}
+        {consultation.inspirationRef?.image && (
+          <div className="mb-6 border border-brand-accent/30 bg-brand-accent/5 flex gap-4 p-4">
+            <img
+              src={consultation.inspirationRef.image}
+              alt={consultation.inspirationRef.title}
+              className="w-16 h-16 object-cover flex-shrink-0 border border-brand-accent/20"
+            />
+            <div className="min-w-0">
+              <p className="text-brand-accent text-xs tracking-widest uppercase mb-1">🎨 Inspiration Reference</p>
+              <p className="text-white text-sm font-medium truncate">{consultation.inspirationRef.title}</p>
+              {consultation.inspirationRef.category && (
+                <p className="text-white/40 text-xs">{consultation.inspirationRef.category}</p>
+              )}
+              {consultation.inspirationRef.estimatedSize && (
+                <p className="text-white/30 text-xs">Size: {consultation.inspirationRef.estimatedSize}</p>
+              )}
+              {consultation.inspirationRef.suggestedPlacement && (
+                <p className="text-white/30 text-xs">Placement: {consultation.inspirationRef.suggestedPlacement}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── AGREED: deposit payment instructions ── */}
         {isAgreed && (
           <div className="mb-6 border border-green-500/30 bg-green-500/5">
@@ -523,7 +604,74 @@ function MyConsultation() {
             )}
             {messages.map((msg) => {
               const isCustomer = msg.sender === 'customer';
-              // Split message into lines; render image URLs as <img> tags
+              
+              // Check if this is an inspiration reference message
+              const isInspirationRef = msg.text.startsWith('🎨 Selected Inspiration:') || msg.text.startsWith('🎨 Inspiration Reference:');
+              
+              if (isInspirationRef && consultation.inspirationRef?.image) {
+                // Render inspiration reference as a professional card
+                return (
+                  <div key={msg._id} className="flex justify-start">
+                    <div className="w-full max-w-[85%]">
+                      <span className="text-[10px] tracking-wider uppercase text-white/30">
+                        {consultation.customerName}
+                      </span>
+                      <div className="mt-1 border border-brand-accent/30 bg-brand-accent/5 rounded-lg overflow-hidden">
+                        {/* Inspiration image */}
+                        <div className="relative bg-black/40 aspect-video overflow-hidden">
+                          <img
+                            src={consultation.inspirationRef.image}
+                            alt={consultation.inspirationRef.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        
+                        {/* Inspiration details */}
+                        <div className="p-4 space-y-2">
+                          <div>
+                            <p className="text-brand-accent text-xs tracking-widest uppercase font-medium mb-1">
+                              🎨 Selected Inspiration
+                            </p>
+                            <p className="text-white font-medium">{consultation.inspirationRef.title}</p>
+                          </div>
+                          
+                          {consultation.inspirationRef.category && (
+                            <p className="text-white/60 text-xs">
+                              <span className="text-white/40">Style: </span>
+                              {consultation.inspirationRef.category}
+                            </p>
+                          )}
+                          
+                          {consultation.inspirationRef.description && (
+                            <p className="text-white/60 text-xs">
+                              <span className="text-white/40">Description: </span>
+                              {consultation.inspirationRef.description}
+                            </p>
+                          )}
+                          
+                          <div className="flex gap-4 text-xs text-white/60 pt-1">
+                            {consultation.inspirationRef.estimatedSize && (
+                              <div>
+                                <span className="text-white/40">Size: </span>
+                                {consultation.inspirationRef.estimatedSize}
+                              </div>
+                            )}
+                            {consultation.inspirationRef.suggestedPlacement && (
+                              <div>
+                                <span className="text-white/40">Placement: </span>
+                                {consultation.inspirationRef.suggestedPlacement}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-white/20 block mt-1">{formatTime(msg.createdAt)}</span>
+                    </div>
+                  </div>
+                );
+              }
+              
+              // Regular message rendering
               const renderText = (text) =>
                 text.split('\n').map((line, i) => {
                   const trimmed = line.trim();

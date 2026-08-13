@@ -20,6 +20,16 @@ router.post(
   inspirationController.createInspirationAdmin
 );
 
+// PATCH /api/admin/inspirations/reorder — reorder inspirations (admin only)
+// IMPORTANT: Must be defined BEFORE /:id routes so Express does not treat
+// the literal string "reorder" as a Mongo document ID.
+router.patch(
+  '/reorder',
+  protect,
+  restrictTo('admin'),
+  inspirationController.reorderInspirationsAdmin
+);
+
 // GET /api/admin/inspirations/:id — get single inspiration (admin only)
 router.get(
   '/:id',

@@ -82,4 +82,31 @@ async function deleteTattoo(req, res, next) {
   }
 }
 
-module.exports = { createTattoo, getAllTattoos, getTattooById, updateTattoo, deleteTattoo };
+// ── PATCH /api/tattoos/reorder  (admin only) ──────────────────────────────────
+async function reorderTattoos(req, res, next) {
+  try {
+    const { orderedIds } = req.body;
+    
+    if (!orderedIds || !Array.isArray(orderedIds)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'orderedIds must be an array of tattoo IDs' 
+      });
+    }
+
+    const result = await tattooService.reorderTattoos(orderedIds);
+    
+    return res.status(200).json({
+      success: true,
+      message: `Successfully reordered ${result.count} tattoos.`,
+      data: {
+        tattoos: result.tattoos,
+        count: result.count
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { createTattoo, getAllTattoos, getTattooById, updateTattoo, deleteTattoo, reorderTattoos };

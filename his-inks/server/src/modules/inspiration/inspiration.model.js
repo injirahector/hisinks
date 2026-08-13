@@ -100,6 +100,13 @@ const inspirationSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+
+    // ── Display order for admin-controlled sorting ─────────────────────────
+    displayOrder: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
   },
   {
     timestamps: true,

@@ -46,6 +46,12 @@ const tattooSchema = new mongoose.Schema(
       default: null,
       // e.g. "KES 5,000 – 10,000" or "$50 – $150"
     },
+    // ── Display order for admin-controlled sorting ─────────────────────────
+    displayOrder: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
   },
   {
     timestamps: true,

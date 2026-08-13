@@ -2,6 +2,85 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+
+// ── Image preview modal ───────────────────────────────────────────────────────
+function ImagePreviewModal({ src, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const filename = src.split('/').pop().split('?')[0] || 'image';
+
+  const handleDownload = async () => {
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(src, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Image preview"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-3xl w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-4 py-3 bg-[#111] border border-white/10 border-b-0">
+          <p className="text-white/50 text-xs truncate max-w-xs">{filename}</p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-brand-accent/50
+                         text-brand-accent hover:bg-brand-accent/10 transition-colors"
+              aria-label="Download image"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-white/40 hover:text-white transition-colors"
+              aria-label="Close preview"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        {/* Image */}
+        <div className="bg-[#0B0B0B] border border-white/10 flex items-center justify-center p-4 max-h-[80vh] overflow-auto">
+          <img
+            src={src}
+            alt="Full size preview"
+            className="max-w-full max-h-[72vh] object-contain"
+          />
+        </div>
+        <p className="text-white/20 text-[10px] text-center py-2">
+          Click outside or press Esc to close
+        </p>
+      </div>
+    </div>
+  );
+}
 const STATUS_LABEL = {
   open:            { text: 'Open',            color: 'text-blue-400',     bg: 'bg-blue-400/10 border-blue-400/30' },
   agreed:          { text: 'Agreed',          color: 'text-green-400',    bg: 'bg-green-400/10 border-green-400/30' },
@@ -41,6 +120,7 @@ function MyConsultation() {
   const [attachPreview, setAttachPreview] = useState('');
   const [attachErr, setAttachErr]       = useState('');
   const [uploading, setUploading]       = useState(false);
+  const [previewSrc, setPreviewSrc]     = useState('');
 
   const handleAttachChange = (e) => {
     const file = e.target.files?.[0];
@@ -395,6 +475,7 @@ function MyConsultation() {
   const agreedPrice    = consultation.agreedPrice;
 
   return (
+    <>
     <div className="pt-24 pb-16 min-h-screen">
       <div className="max-w-2xl mx-auto px-6">
 
@@ -618,12 +699,23 @@ function MyConsultation() {
                       </span>
                       <div className="mt-1 border border-brand-accent/30 bg-brand-accent/5 rounded-lg overflow-hidden">
                         {/* Inspiration image */}
-                        <div className="relative bg-black/40 aspect-video overflow-hidden">
+                        <div className="relative bg-black/40 aspect-video overflow-hidden group cursor-pointer">
                           <img
                             src={consultation.inspirationRef.image}
                             alt={consultation.inspirationRef.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                            onClick={() => setPreviewSrc(consultation.inspirationRef.image)}
                           />
+                          <button
+                            type="button"
+                            onClick={() => setPreviewSrc(consultation.inspirationRef.image)}
+                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Preview inspiration image"
+                          >
+                            <span className="text-white text-[10px] px-2 py-1 bg-black/60 border border-white/20">
+                              Preview / Download
+                            </span>
+                          </button>
                         </div>
                         
                         {/* Inspiration details */}
@@ -679,12 +771,28 @@ function MyConsultation() {
                                 /^https?:\/\/res\.cloudinary\.com\/.+\/image\//i.test(trimmed);
                   if (isUrl) {
                     return (
-                      <img
-                        key={i}
-                        src={trimmed}
-                        alt="Reference"
-                        className="mt-2 max-w-[200px] border border-white/10 object-contain"
-                      />
+                      <div key={i} className="mt-2 group relative inline-block">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewSrc(trimmed)}
+                          className="block border border-white/10 hover:border-brand-accent/50
+                                     transition-colors focus:outline-none focus-visible:ring-2
+                                     focus-visible:ring-brand-accent"
+                          aria-label="Preview attached image"
+                        >
+                          <img
+                            src={trimmed}
+                            alt="Attachment"
+                            className="max-w-[200px] max-h-[200px] object-cover group-hover:opacity-80 transition-opacity"
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center
+                                           opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
+                            <span className="text-white text-[10px] px-2 py-1 bg-black/60 border border-white/20">
+                              Preview / Download
+                            </span>
+                          </span>
+                        </button>
+                      </div>
                     );
                   }
                   return <p key={i} className={i > 0 ? 'mt-0.5' : ''}>{line}</p>;
@@ -789,6 +897,12 @@ function MyConsultation() {
         </p>
       </div>
     </div>
+
+    {/* Image preview modal */}
+    {previewSrc && (
+      <ImagePreviewModal src={previewSrc} onClose={() => setPreviewSrc('')} />
+    )}
+    </>
   );
 }
 

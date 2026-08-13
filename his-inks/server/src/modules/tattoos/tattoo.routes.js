@@ -5,6 +5,11 @@ const { protect, restrictTo } = require('../../middleware/auth.middleware');
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 router.get('/',    tattooController.getAllTattoos);
+
+// ── Admin-only: reorder MUST come before /:id so Express doesn't treat
+//    the literal string "reorder" as a mongo ID parameter.
+router.patch('/reorder', protect, restrictTo('admin'), tattooController.reorderTattoos);
+
 router.get('/:id', tattooController.getTattooById);
 
 // ── Admin-only routes ─────────────────────────────────────────────────────────

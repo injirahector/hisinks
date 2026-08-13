@@ -156,6 +156,43 @@ async function getCategories(req, res, next) {
   }
 }
 
+// ── PATCH /api/admin/inspirations/reorder (admin only) ─────────────────────────
+async function reorderInspirationsAdmin(req, res, next) {
+  try {
+    const { orderedIds } = req.body;
+    
+    // Enhanced validation logging
+    console.log('[Reorder Controller] Received orderedIds:', orderedIds);
+    console.log('[Reorder Controller] Type:', typeof orderedIds);
+    console.log('[Reorder Controller] Is Array:', Array.isArray(orderedIds));
+    console.log('[Reorder Controller] Length:', orderedIds?.length);
+    
+    if (!orderedIds || !Array.isArray(orderedIds)) {
+      console.error('[Reorder Controller] Validation failed: not an array');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'orderedIds must be an array of inspiration IDs' 
+      });
+    }
+
+    const result = await inspirationService.reorderInspirations(orderedIds);
+    
+    return res.status(200).json({
+      success: true,
+      message: `Successfully reordered ${result.count} inspirations.`,
+      data: {
+        inspirations: result.inspirations,
+        count: result.count
+      },
+    });
+  } catch (err) {
+    console.error('[Reorder Controller] Error:', err);
+    console.error('[Reorder Controller] Error message:', err.message);
+    console.error('[Reorder Controller] Error statusCode:', err.statusCode);
+    next(err);
+  }
+}
+
 module.exports = {
   getPublicInspirations,
   getPublicInspirationById,
@@ -166,4 +203,5 @@ module.exports = {
   deleteInspirationAdmin,
   togglePublishInspirationAdmin,
   getCategories,
+  reorderInspirationsAdmin,
 };

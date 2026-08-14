@@ -9,6 +9,8 @@ function Register() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const from = location.state?.from || '/';
+  const tattooRef    = location.state?.tattooRef    || null;
+  const inspirationId = location.state?.inspirationId || null;
 
   // Capture referral code from ?ref= query parameter.
   // Stored in state so it survives form interaction but is never shown
@@ -46,7 +48,7 @@ function Register() {
     try {
       // Pass referralCode from the URL so the backend can apply it if this is a new account
       await googleLogin(credential, referralCode || undefined);
-      navigate(from);
+      navigate(from, { state: { tattooRef, inspirationId } });
     } catch (err) {
       setServerError(err.message || 'Google sign-up failed. Please try again.');
     } finally {
@@ -68,7 +70,7 @@ function Register() {
     try {
       // Include the referral code from the URL — backend validates it silently
       await register({ ...form, referralCode: referralCode || undefined });
-      navigate(from);
+      navigate(from, { state: { tattooRef, inspirationId } });
     } catch (err) {
       // err may be an object of field errors or a plain string
       if (err && typeof err === 'object' && !err.message) {

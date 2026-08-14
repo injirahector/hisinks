@@ -76,39 +76,46 @@ export function NotificationProvider({ children }) {
     // Poll a short time after mount to let the socket connect first
     const timer = setTimeout(fetchUnreadCount, 500);
 
-    // Attach socket listener — re-runs whenever user changes (login/logout)
-    const attachListener = () => {
-      const socket = getSocket();
-      if (!socket) return;
+    // Attach the listener once.  The socket may not be connected yet at
+    // render time (connectSocket is async), so we retry until it is ready
+    // — but we track whether we have already attached to avoid registering
+    // multiple handlers on the same socket object (which would double-count
+    // unread badges on every event).
+    let attached = false;
+    let socketRef = null;
 
-      const handler = (notification) => {
-        // Prepend to list (dedup by _id in case REST and socket overlap)
-        setNotifications((prev) => {
-          if (prev.some((n) => n._id === notification._id)) return prev;
-          return [notification, ...prev];
-        });
-        setUnreadCount((prev) => prev + 1);
-        setFetchedOnce(true);
-      };
-
-      socket.on('notification.created', handler);
-      return () => socket.off('notification.created', handler);
+    const handler = (notification) => {
+      setNotifications((prev) => {
+        if (prev.some((n) => n._id === notification._id)) return prev;
+        return [notification, ...prev];
+      });
+      setUnreadCount((prev) => prev + 1);
+      setFetchedOnce(true);
     };
 
-    // The socket may not be connected yet at render time (it's async).
-    // Retry attaching for up to 3 seconds.
-    let cleanup = attachListener();
-    let attempts = 0;
-    const retryTimer = setInterval(() => {
-      if (cleanup || attempts >= 6) { clearInterval(retryTimer); return; }
-      cleanup = attachListener();
-      attempts++;
-    }, 500);
+    const tryAttach = () => {
+      if (attached) return true; // already registered — stop retrying
+      const socket = getSocket();
+      if (!socket) return false;
+      socket.on('notification.created', handler);
+      socketRef = socket;
+      attached = true;
+      return true;
+    };
+
+    // Try immediately, then retry every 500ms for up to 3 seconds
+    if (!tryAttach()) {
+      let attempts = 0;
+      const retryTimer = setInterval(() => {
+        attempts++;
+        if (tryAttach() || attempts >= 6) clearInterval(retryTimer);
+      }, 500);
+    }
 
     return () => {
       clearTimeout(timer);
-      clearInterval(retryTimer);
-      if (cleanup) cleanup();
+      // Remove listener from whichever socket instance we attached to
+      if (socketRef) socketRef.off('notification.created', handler);
     };
   }, [user, fetchUnreadCount]);
 

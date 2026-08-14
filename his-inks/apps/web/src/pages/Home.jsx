@@ -197,8 +197,8 @@ function Home() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up"
             style={{ animationDelay: '1.05s', animationFillMode: 'both' }}
           >
-            <Link to="/book" className="btn-primary px-10 py-4 w-full sm:w-auto">
-              Book Appointment
+            <Link to="/my-consultation" className="btn-primary px-10 py-4 w-full sm:w-auto">
+              Start Consultation
             </Link>
             <a href="#portfolio" className="btn-outline px-10 py-4 w-full sm:w-auto">
               View Portfolio
@@ -351,7 +351,7 @@ function Home() {
               From first message to finished piece — every step is designed to make your
               experience effortless and personal.
             </p>
-            <Link to="/book" className="btn-primary text-xs py-3.5 px-8">Start the Process</Link>
+            <Link to="/my-consultation" className="btn-primary text-xs py-3.5 px-8">Start the Process</Link>
           </div>
           <div className="space-y-0">
             {PROCESS.map((item, i) => (
@@ -418,7 +418,7 @@ function Home() {
           ) : filteredTattoos.length === 0 ? (
             <div className="text-center py-24">
               <p className="text-white/30 mb-6">No designs in this category yet.</p>
-              <Link to="/book" className="btn-outline text-xs py-2 px-6">
+              <Link to="/my-consultation" className="btn-outline text-xs py-2 px-6">
                 Request a custom design
               </Link>
             </div>
@@ -451,7 +451,7 @@ function Home() {
           {!tattooLoading && filteredTattoos.length > 0 && (
             <div className="text-center mt-16">
               <p className="text-white/40 mb-6">Inspired by what you see?</p>
-              <Link to="/book" className="btn-primary">Book an Appointment</Link>
+              <Link to="/my-consultation" className="btn-primary">Book an Appointment</Link>
             </div>
           )}
         </div>
@@ -508,7 +508,7 @@ function Home() {
 
       {/* ── Reviews ───────────────────────────────────────────────────────── */}
       {(stats?.totalReviews > 0 || reviews.length > 0) && (
-        <section className="max-w-7xl mx-auto px-6 py-28">
+        <section id="reviews" className="max-w-7xl mx-auto px-6 py-28">
           <div className="text-center mb-16">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="w-8 h-px bg-brand-accent" />
@@ -616,7 +616,7 @@ function Home() {
       )}
 
       {/* ── Inspiration Section ──────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-t border-white/5 py-24 md:py-32">
+      <section id="inspiration" className="relative overflow-hidden border-t border-white/5 py-24 md:py-32">
         <div className="absolute inset-0 bg-brand-bg" />
         <div className="relative z-10 max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -666,7 +666,7 @@ function Home() {
             Every great tattoo starts with a conversation.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/book" className="btn-primary px-12 py-4">Book an Appointment</Link>
+            <Link to="/my-consultation" className="btn-primary px-12 py-4">Book an Appointment</Link>
             <Link to="/contact" className="btn-outline px-12 py-4">Get in Touch</Link>
           </div>
         </div>

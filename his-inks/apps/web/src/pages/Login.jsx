@@ -9,6 +9,7 @@ function Login() {
   const location = useLocation();
   const from = location.state?.from || null;
   const tattooRef = location.state?.tattooRef || null;
+  const inspirationId = location.state?.inspirationId || null;
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -34,7 +35,7 @@ function Login() {
     try {
       const authedUser = await googleLogin(credential);
       if (from) {
-        navigate(from, { state: { tattooRef } });
+        navigate(from, { state: { tattooRef, inspirationId } });
       } else {
         navigate(authedUser.role === 'admin' ? '/admin' : '/');
       }
@@ -54,7 +55,7 @@ function Login() {
     try {
       const loggedIn = await login({ email: form.email, password: form.password });
       if (from) {
-        navigate(from, { state: { tattooRef } });
+        navigate(from, { state: { tattooRef, inspirationId } });
       } else {
         navigate(loggedIn.role === 'admin' ? '/admin' : '/');
       }
@@ -188,7 +189,7 @@ function Login() {
 
         <p className="text-center text-white/40 text-sm mt-8">
           Don&apos;t have an account?{' '}
-          <Link to="/register" className="text-brand-accent hover:underline">
+          <Link to="/register" state={{ from, tattooRef, inspirationId }} className="text-brand-accent hover:underline">
             Create one
           </Link>
         </p>

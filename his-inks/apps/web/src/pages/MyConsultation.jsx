@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { initGoogleButton } from '../services/googleAuth';
 
 // ── Image preview modal ───────────────────────────────────────────────────────
 function ImagePreviewModal({ src, onClose }) {
@@ -40,7 +41,6 @@ function ImagePreviewModal({ src, onClose }) {
         className="relative max-w-3xl w-full"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Toolbar */}
         <div className="flex items-center justify-between px-4 py-3 bg-[#111] border border-white/10 border-b-0">
           <p className="text-white/50 text-xs truncate max-w-xs">{filename}</p>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -66,17 +66,266 @@ function ImagePreviewModal({ src, onClose }) {
             </button>
           </div>
         </div>
-        {/* Image */}
         <div className="bg-[#0B0B0B] border border-white/10 flex items-center justify-center p-4 max-h-[80vh] overflow-auto">
-          <img
-            src={src}
-            alt="Full size preview"
-            className="max-w-full max-h-[72vh] object-contain"
-          />
+          <img src={src} alt="Full size preview" className="max-w-full max-h-[72vh] object-contain" />
         </div>
-        <p className="text-white/20 text-[10px] text-center py-2">
-          Click outside or press Esc to close
-        </p>
+        <p className="text-white/20 text-[10px] text-center py-2">Click outside or press Esc to close</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Inline auth panel — shown when a guest tries to submit ───────────────────
+// Uses the existing auth context directly. No navigation away from the page.
+function InlineAuthPanel({ onSuccess, onCancel }) {
+  const { login, register, googleLogin } = useAuth();
+  const [mode, setMode]           = useState('choice'); // choice | login | register
+  const [form, setForm]           = useState({ firstName: '', lastName: '', email: '', phone: '', password: '' });
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [errors, setErrors]       = useState({});
+  const [serverErr, setServerErr] = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const googleBtnRef = useRef(null);
+
+  useEffect(() => {
+    if (mode !== 'choice') return;
+    const cleanup = initGoogleButton(googleBtnRef.current, handleGoogleCredential, 'continue_with');
+    return cleanup;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  async function handleGoogleCredential({ credential }) {
+    setServerErr('');
+    setGoogleLoading(true);
+    try {
+      await googleLogin(credential);
+      onSuccess();
+    } catch (err) {
+      setServerErr(err.message || 'Google sign-in failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setServerErr('');
+    setLoading(true);
+    try {
+      await login({ email: loginForm.email, password: loginForm.password });
+      onSuccess();
+    } catch (err) {
+      setServerErr(err.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    setServerErr('');
+    setErrors({});
+    setLoading(true);
+    try {
+      await register(form);
+      onSuccess();
+    } catch (err) {
+      if (err && typeof err === 'object' && !err.message) {
+        setErrors(err);
+      } else {
+        setServerErr(err.message || 'Registration failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inputCls = (err) =>
+    `w-full bg-white/5 border px-4 py-2.5 text-white text-sm placeholder-white/20
+     focus:outline-none transition-colors
+     ${err ? 'border-red-500/60 focus:border-red-500' : 'border-white/10 focus:border-brand-accent'}`;
+
+  return (
+    <div className="border border-white/10 bg-[#0f0f0f] mt-4">
+      <div className="px-5 py-4 border-b border-white/8 flex items-center justify-between">
+        <div>
+          <p className="text-brand-accent text-xs tracking-widest uppercase font-medium">
+            {mode === 'register' ? 'Create Account' : mode === 'login' ? 'Sign In' : 'One last step'}
+          </p>
+          <p className="text-white/40 text-xs mt-0.5">
+            {mode === 'choice'
+              ? 'Sign in or create a free account to send your consultation.'
+              : mode === 'login'
+              ? 'Sign in to send your consultation.'
+              : 'Create a free account to send your consultation.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-white/30 hover:text-white transition-colors p-1 flex-shrink-0"
+          aria-label="Cancel"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="px-5 py-5">
+        {serverErr && (
+          <div className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+            {serverErr}
+          </div>
+        )}
+
+        {/* ── Choice screen ── */}
+        {mode === 'choice' && (
+          <div className="space-y-3">
+            {/* Google */}
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+              <>
+                <div ref={googleBtnRef} className="w-full" aria-label="Continue with Google" />
+                {googleLoading && <p className="text-white/40 text-xs text-center">Signing in…</p>}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-white/10" />
+                  <span className="text-white/30 text-xs">or</span>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => { setMode('login'); setServerErr(''); }}
+              className="w-full border border-white/10 px-4 py-2.5 text-white/70 text-sm
+                         hover:border-brand-accent/50 hover:text-white transition-colors text-left"
+            >
+              Sign In with Email
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('register'); setServerErr(''); }}
+              className="w-full border border-brand-accent/30 px-4 py-2.5 text-brand-accent text-sm
+                         hover:bg-brand-accent/5 transition-colors text-left"
+            >
+              Create a Free Account
+            </button>
+          </div>
+        )}
+
+        {/* ── Login form ── */}
+        {mode === 'login' && (
+          <form onSubmit={handleLogin} className="space-y-3" noValidate>
+            <input
+              type="email"
+              value={loginForm.email}
+              onChange={e => setLoginForm(p => ({ ...p, email: e.target.value }))}
+              placeholder="Email"
+              autoFocus
+              required
+              className={inputCls(false)}
+            />
+            <input
+              type="password"
+              value={loginForm.password}
+              onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))}
+              placeholder="Password"
+              required
+              className={inputCls(false)}
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full justify-center text-xs py-2.5 disabled:opacity-50"
+            >
+              {loading ? 'Signing in…' : 'Sign In'}
+            </button>
+            <p className="text-white/30 text-xs text-center">
+              <button type="button" onClick={() => { setMode('choice'); setServerErr(''); }}
+                className="hover:text-white/60 transition-colors">← Back</button>
+              {' · '}
+              <Link to="/forgot-password" className="hover:text-brand-accent transition-colors">
+                Forgot password?
+              </Link>
+            </p>
+          </form>
+        )}
+
+        {/* ── Register form ── */}
+        {mode === 'register' && (
+          <form onSubmit={handleRegister} className="space-y-3" noValidate>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <input
+                  type="text"
+                  value={form.firstName}
+                  onChange={e => { setForm(p => ({ ...p, firstName: e.target.value })); setErrors(p => ({ ...p, firstName: '' })); }}
+                  placeholder="First name"
+                  autoFocus
+                  required
+                  className={inputCls(errors.firstName)}
+                />
+                {errors.firstName && <p className="text-red-400 text-[10px] mt-0.5">{errors.firstName}</p>}
+              </div>
+              <div>
+                <input
+                  type="text"
+                  value={form.lastName}
+                  onChange={e => { setForm(p => ({ ...p, lastName: e.target.value })); setErrors(p => ({ ...p, lastName: '' })); }}
+                  placeholder="Last name"
+                  required
+                  className={inputCls(errors.lastName)}
+                />
+                {errors.lastName && <p className="text-red-400 text-[10px] mt-0.5">{errors.lastName}</p>}
+              </div>
+            </div>
+            <div>
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => { setForm(p => ({ ...p, email: e.target.value })); setErrors(p => ({ ...p, email: '' })); }}
+                placeholder="Email"
+                required
+                className={inputCls(errors.email)}
+              />
+              {errors.email && <p className="text-red-400 text-[10px] mt-0.5">{errors.email}</p>}
+            </div>
+            <div>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={e => { setForm(p => ({ ...p, phone: e.target.value })); setErrors(p => ({ ...p, phone: '' })); }}
+                placeholder="Phone (+254…)"
+                required
+                className={inputCls(errors.phone)}
+              />
+              {errors.phone && <p className="text-red-400 text-[10px] mt-0.5">{errors.phone}</p>}
+            </div>
+            <div>
+              <input
+                type="password"
+                value={form.password}
+                onChange={e => { setForm(p => ({ ...p, password: e.target.value })); setErrors(p => ({ ...p, password: '' })); }}
+                placeholder="Password"
+                required
+                className={inputCls(errors.password)}
+              />
+              {errors.password && <p className="text-red-400 text-[10px] mt-0.5">{errors.password}</p>}
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full justify-center text-xs py-2.5 disabled:opacity-50"
+            >
+              {loading ? 'Creating account…' : 'Create Account & Send'}
+            </button>
+            <p className="text-white/30 text-xs text-center">
+              <button type="button" onClick={() => { setMode('choice'); setServerErr(''); }}
+                className="hover:text-white/60 transition-colors">← Back</button>
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -92,49 +341,109 @@ const STATUS_LABEL = {
 
 function MyConsultation() {
   const { user, loading: authLoading } = useAuth();
-  const navigate  = useNavigate();
   const location  = useLocation();
+  const navigate  = useNavigate();
   const bottomRef = useRef(null);
 
   // tattooRef passed from Portfolio via router state
   // inspirationId passed from Inspiration Gallery via router state (only the ID)
-  const routeTattooRef = location.state?.tattooRef || null;
+  const routeTattooRef     = location.state?.tattooRef     || null;
   const routeInspirationId = location.state?.inspirationId || null;
 
   // null  = no consultation yet (or user cleared it to start a new one)
   // false = still loading
   const [consultation, setConsultation] = useState(false);
   const [loadErr, setLoadErr]           = useState('');
-  
+
   // Inspiration data fetched from database if passed via route
   const [routeInspirationData, setRouteInspirationData] = useState(null);
-  const [inspirationLoadErr, setInspirationLoadErr] = useState('');
+  const [inspirationLoadErr, setInspirationLoadErr]     = useState('');
 
-  const [text, setText]     = useState('');
+  const [text, setText]       = useState('');
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState('');
 
   // Image attachment state
-  const consultFileRef                  = useRef(null);
-  const [attachFile, setAttachFile]     = useState(null);
-  const [attachPreview, setAttachPreview] = useState('');
-  const [attachErr, setAttachErr]       = useState('');
-  const [uploading, setUploading]       = useState(false);
-  const [previewSrc, setPreviewSrc]     = useState('');
+  const consultFileRef                        = useRef(null);
+  const [attachFile, setAttachFile]           = useState(null);
+  const [attachPreview, setAttachPreview]     = useState('');
+  const [attachErr, setAttachErr]             = useState('');
+  const [uploading, setUploading]             = useState(false);
+  const [previewSrc, setPreviewSrc]           = useState('');
+
+  // Guest flow — pending submission saved while auth panel is shown
+  // { text: string, attachFile: File|null, attachPreview: string }
+  const [pendingSubmit, setPendingSubmit]     = useState(null);
+  const [showAuthPanel, setShowAuthPanel]     = useState(false);
+
+  // Deposit state
+  const [mpesaRef, setMpesaRef]               = useState('');
+  const [depositErr, setDepositErr]           = useState('');
+  const [depositSending, setDepositSending]   = useState(false);
+  const [depositMsg, setDepositMsg]           = useState('');
+
+  // ── Load existing consultation when user is present ───────────────────────
+  useEffect(() => {
+    if (!user) {
+      // Guest — show the empty start screen immediately (no redirect)
+      if (!authLoading) setConsultation(null);
+      return;
+    }
+    api.get('/consultations/my')
+      .then(res => {
+        const c = res.data.data.consultation;
+        // If arriving from Portfolio/Gallery always start fresh
+        if (routeTattooRef || routeInspirationId) {
+          setConsultation(null);
+        } else {
+          setConsultation(c);
+        }
+      })
+      .catch(() => { setLoadErr('Could not load your consultation. Please try again.'); setConsultation(null); });
+  }, [user, authLoading]);
+
+  // ── After auth succeeds, auto-fire the pending submission ─────────────────
+  // This runs when `user` changes from null → logged-in (after inline auth).
+  useEffect(() => {
+    if (!user || !pendingSubmit) return;
+
+    // Close the auth panel and restore the form fields
+    setShowAuthPanel(false);
+    setText(pendingSubmit.text);
+    if (pendingSubmit.attachFile) {
+      setAttachFile(pendingSubmit.attachFile);
+      setAttachPreview(pendingSubmit.attachPreview);
+    }
+
+    // Auto-submit after a tick so state has settled
+    const timer = setTimeout(() => {
+      doSend(pendingSubmit.text, pendingSubmit.attachFile);
+      setPendingSubmit(null);
+    }, 100);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // ── Fetch inspiration data if inspirationId provided ─────────────────────
+  useEffect(() => {
+    if (!routeInspirationId) return;
+    api.get(`/inspirations/${routeInspirationId}`)
+      .then(res => setRouteInspirationData(res.data.data.inspiration))
+      .catch(() => setInspirationLoadErr('Could not load the inspiration. It may have been deleted.'));
+  }, [routeInspirationId]);
+
+  // ── Auto-scroll to bottom when messages arrive ────────────────────────────
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [consultation?.messages?.length]);
 
   const handleAttachChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setAttachErr('');
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowed.includes(file.type)) {
-      setAttachErr('Only JPG, PNG, or WebP images are allowed.');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setAttachErr('Image must be under 5 MB.');
-      return;
-    }
+    if (!allowed.includes(file.type)) { setAttachErr('Only JPG, PNG, or WebP images are allowed.'); return; }
+    if (file.size > 5 * 1024 * 1024) { setAttachErr('Image must be under 5 MB.'); return; }
     setAttachFile(file);
     setAttachPreview(URL.createObjectURL(file));
   };
@@ -149,94 +458,30 @@ function MyConsultation() {
   const uploadAttach = async (file) => {
     const data = new FormData();
     data.append('image', file);
-    const res = await api.post('/uploads/image', data, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const res = await api.post('/uploads/image', data, { headers: { 'Content-Type': 'multipart/form-data' } });
     return res.data.data.url;
   };
 
-  // Deposit state
-  const [mpesaRef, setMpesaRef]             = useState('');
-  const [depositErr, setDepositErr]         = useState('');
-  const [depositSending, setDepositSending] = useState(false);
-  const [depositMsg, setDepositMsg]         = useState('');
-
-  // Redirect if not logged in — preserve tattooRef/inspirationId in the login state so it
-  // survives the login redirect and comes back to /my-consultation
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login', {
-        state: {
-          from: '/my-consultation',
-          tattooRef: routeTattooRef,
-          inspirationId: routeInspirationId,
-        },
-      });
-    }
-  }, [user, authLoading, navigate]);
-
-  // Load existing consultation (find-only — never creates)
-  useEffect(() => {
-    if (!user) return;
-    api.get('/consultations/my')
-      .then(res => {
-        const c = res.data.data.consultation;
-        // If arriving from Portfolio with a tattooRef or from Gallery with inspirationId,
-        // always auto-start a new consultation — regardless of the current consultation's status
-        if (routeTattooRef || routeInspirationId) {
-          setConsultation(null);
-        } else {
-          setConsultation(c);
-        }
-      })
-      .catch(() => { setLoadErr('Could not load your consultation. Please try again.'); setConsultation(null); });
-  }, [user]);
-
-  // Fetch inspiration data if inspirationId provided
-  useEffect(() => {
-    if (!routeInspirationId) return;
-    
-    api.get(`/inspirations/${routeInspirationId}`)
-      .then(res => {
-        setRouteInspirationData(res.data.data.inspiration);
-      })
-      .catch(() => {
-        setInspirationLoadErr('Could not load the inspiration. It may have been deleted.');
-      });
-  }, [routeInspirationId]);
-
-  // Auto-scroll to bottom when messages arrive
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [consultation?.messages?.length]);
-
-  // Send message — creates the consultation on the very first send
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!text.trim() && !attachFile) return;
+  // ── Core send logic (separated so it can be called post-auth) ─────────────
+  const doSend = async (msgText, file) => {
+    if (!msgText.trim() && !file) return;
     setSending(true);
     setSendErr('');
     try {
-      // Upload image attachment if present
       let imageUrl = '';
-      if (attachFile) {
+      if (file) {
         setUploading(true);
-        imageUrl = await uploadAttach(attachFile);
+        imageUrl = await uploadAttach(file);
         setUploading(false);
       }
 
       const isNewThread = !consultation ||
         consultation === null ||
         (consultation.messages?.length === 0 && !consultation.tattooRef?.image && !consultation.inspirationRef?._id);
-      const payload = { text: imageUrl ? `${text}\n${imageUrl}`.trim() : text };
-      if (isNewThread && routeTattooRef) {
-        payload.tattooRef = routeTattooRef;
-      }
-      // Pass only the inspirationId (not the full object)
-      // Service will validate and fetch from database
-      if (isNewThread && routeInspirationId) {
-        payload.inspirationId = routeInspirationId;
-      }
+      const payload = { text: imageUrl ? `${msgText}\n${imageUrl}`.trim() : msgText };
+      if (isNewThread && routeTattooRef)     payload.tattooRef     = routeTattooRef;
+      if (isNewThread && routeInspirationId) payload.inspirationId = routeInspirationId;
+
       const res = await api.post('/consultations/my/messages', payload);
       setConsultation(res.data.data.consultation);
       setText('');
@@ -249,14 +494,37 @@ function MyConsultation() {
     }
   };
 
+  // ── Form submit handler ───────────────────────────────────────────────────
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!text.trim() && !attachFile) return;
+
+    // Guest — save what they typed and show the inline auth panel
+    if (!user) {
+      setPendingSubmit({ text, attachFile, attachPreview });
+      setShowAuthPanel(true);
+      return;
+    }
+
+    await doSend(text, attachFile);
+  };
+
+  // Called by InlineAuthPanel once auth succeeds
+  // The useEffect above will pick up the user change and fire the pending send
+  const handleAuthSuccess = () => {
+    // Nothing to do here — the useEffect on [user] handles it
+  };
+
+  const handleCancelAuth = () => {
+    setShowAuthPanel(false);
+    setPendingSubmit(null);
+  };
+
   const handleDepositSubmit = async (e) => {
     e.preventDefault();
     const ref = mpesaRef.trim();
     if (!ref) { setDepositErr('Please enter your M-Pesa reference code.'); return; }
-    if (!/^[A-Z0-9]{6,20}$/i.test(ref)) {
-      setDepositErr('Invalid reference format. Example: SLK1234XYZ');
-      return;
-    }
+    if (!/^[A-Z0-9]{6,20}$/i.test(ref)) { setDepositErr('Invalid reference format. Example: SLK1234XYZ'); return; }
     setDepositErr('');
     setDepositSending(true);
     try {
@@ -271,14 +539,17 @@ function MyConsultation() {
     }
   };
 
-  // "Start new" — just clear local state to show the start prompt.
-  // The new consultation is created automatically when they send their first message.
   const handleStartNew = () => {
+    // Wipe the router state so any inspiration/tattooRef that was passed via
+    // navigation (Portfolio → here, Gallery → here) is no longer active.
+    // replace:true keeps the back-button stack clean.
+    navigate(location.pathname, { replace: true, state: {} });
     setConsultation(null);
     setText('');
     setSendErr('');
     setMpesaRef('');
     setDepositMsg('');
+    clearAttach();
   };
 
   const formatTime = (ts) => {
@@ -290,7 +561,7 @@ function MyConsultation() {
   if (authLoading || consultation === false) {
     return (
       <div className="min-h-screen pt-24 flex items-center justify-center">
-        <div className="text-white/30 text-sm">Loading your consultation…</div>
+        <div className="text-white/30 text-sm">Loading…</div>
       </div>
     );
   }
@@ -440,7 +711,7 @@ function MyConsultation() {
                 disabled={sending || uploading || (!text.trim() && !attachFile)}
                 className="btn-primary px-5 py-2 text-xs self-end disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
               >
-                {uploading ? 'Uploading…' : sending ? 'Sending…' : 'Send'}
+                {uploading ? 'Uploading…' : sending ? 'Sending…' : user ? 'Send' : 'Start Consultation'}
               </button>
             </form>
             <input
@@ -452,9 +723,30 @@ function MyConsultation() {
             />
           </div>
 
+          {/* Inline auth panel — shown when a guest tries to submit */}
+          {showAuthPanel && (
+            <InlineAuthPanel
+              onSuccess={handleAuthSuccess}
+              onCancel={handleCancelAuth}
+            />
+          )}
+
+          {/* Pending indicator — shown while auto-sending after auth */}
+          {pendingSubmit && !showAuthPanel && sending && (
+            <p className="mt-3 text-brand-accent text-xs text-center">
+              Sending your consultation…
+            </p>
+          )}
+
           {sendErr && <p className="mt-3 text-red-400 text-xs">{sendErr}</p>}
 
-          <p className="mt-6 text-white/20 text-xs text-center">
+          {!user && !showAuthPanel && (
+            <p className="mt-4 text-white/20 text-xs text-center">
+              You&apos;ll be asked to sign in or create a free account when you send.
+            </p>
+          )}
+
+          <p className="mt-3 text-white/20 text-xs text-center">
             Messages are visible to the studio admin only. Replies may take up to 24 hours.
           </p>
         </div>
@@ -503,8 +795,10 @@ function MyConsultation() {
           )}
         </div>
 
-        {/* Tattoo reference card — shown if consultation originated from portfolio */}
-        {consultation.tattooRef?.image && (
+        {/* Tattoo reference card — shown if consultation originated from portfolio.
+            Hidden for closed consultations: the reference belongs to the working
+            context of that consultation, not to a read-only historical record. */}
+        {consultation.tattooRef?.image && status !== 'closed' && status !== 'booked' && (
           <div className="mb-6 border border-white/10 bg-white/[0.02] flex gap-4 p-4">
             <img
               src={consultation.tattooRef.image}
@@ -521,8 +815,10 @@ function MyConsultation() {
           </div>
         )}
 
-        {/* Inspiration reference card — shown if consultation originated from inspiration gallery */}
-        {consultation.inspirationRef?.image && (
+        {/* Inspiration reference card — shown if consultation originated from inspiration gallery.
+            Hidden for closed consultations: the reference belongs to the working
+            context of that consultation, not to a read-only historical record. */}
+        {consultation.inspirationRef?.image && status !== 'closed' && status !== 'booked' && (
           <div className="mb-6 border border-brand-accent/30 bg-brand-accent/5 flex gap-4 p-4">
             <img
               src={consultation.inspirationRef.image}
@@ -885,6 +1181,8 @@ function MyConsultation() {
             <div className="border-t border-white/8 px-5 py-3 text-white/25 text-xs text-center">
               {status === 'deposit_paid'
                 ? 'Deposit confirmed — use the button above to book.'
+                : status === 'closed'
+                ? 'This consultation is closed. Use the button above to start a new one.'
                 : 'Use the button above to start a new consultation.'}
             </div>
           )}

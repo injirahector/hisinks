@@ -8,19 +8,28 @@ function User() {
   return _User;
 }
 
-// ── Get all admin user IDs (cached per process lifetime) ─────────────────────
-// There may be more than one admin account — notify all of them.
-let _adminIds = null;
+// ── Get all admin user IDs (cached with a 5-minute TTL) ──────────────────────
+// Short-lived cache: avoids a DB query on every notification while still
+// picking up newly-created admin accounts within a few minutes.
+let _adminIds  = null;
+let _adminIdsCachedAt = 0;
+const ADMIN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 async function getAdminIds() {
-  if (_adminIds) return _adminIds;
+  const now = Date.now();
+  if (_adminIds && (now - _adminIdsCachedAt) < ADMIN_CACHE_TTL_MS) {
+    return _adminIds;
+  }
   const admins = await User().find({ role: 'admin' }).select('_id').lean();
   _adminIds = admins.map((a) => a._id);
+  _adminIdsCachedAt = now;
   return _adminIds;
 }
 
-// Invalidate cache (called if admin accounts change at runtime — safety valve)
+// Invalidate cache immediately (call after creating or deleting an admin account)
 function clearAdminCache() {
   _adminIds = null;
+  _adminIdsCachedAt = 0;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

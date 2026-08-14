@@ -139,7 +139,7 @@ function Contact() {
                 ))}
               </ul>
             </div>
-            <Link to="/book" className="btn-primary text-center text-xs py-3.5">
+            <Link to="/my-consultation" className="btn-primary text-center text-xs py-3.5">
               Book an Appointment
             </Link>
           </div>

@@ -93,7 +93,7 @@ function Portfolio() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-24">
             <p className="text-white/30 mb-6">No designs in this category yet.</p>
-            <Link to="/book" className="btn-outline text-xs py-2 px-6">
+            <Link to="/my-consultation" className="btn-outline text-xs py-2 px-6">
               Request a custom design
             </Link>
           </div>
@@ -128,7 +128,7 @@ function Portfolio() {
         {!loading && filtered.length > 0 && (
           <div className="text-center mt-16">
             <p className="text-white/40 mb-6">Inspired by what you see?</p>
-            <Link to="/book" className="btn-primary">Book an Appointment</Link>
+            <Link to="/my-consultation" className="btn-primary">Book an Appointment</Link>
           </div>
         )}
       </div>

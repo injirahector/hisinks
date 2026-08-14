@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -2349,7 +2349,9 @@ function CustomerDashboard() {
     markAllAsRead,
   } = useNotifications();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
+  // Support direct-linking to a specific tab via navigate('/dashboard', { state: { tab: 'profile' } })
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'overview');
 
   // Data state
   const [bookings, setBookings] = useState([]);

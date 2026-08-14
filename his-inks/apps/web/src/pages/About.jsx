@@ -122,7 +122,7 @@ function About() {
           <p className="text-white/40 mb-8 max-w-sm mx-auto">
             Every great tattoo starts with a conversation. Let&apos;s talk about yours.
           </p>
-          <Link to="/book" className="btn-primary">Book a Consultation</Link>
+          <Link to="/my-consultation" className="btn-primary">Book a Consultation</Link>
         </div>
       </div>
     </div>

@@ -1,57 +1,96 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 
-const NAV_LINKS = [
-  { label: 'Home',      to: '/' },
+// ── Navigation structure ──────────────────────────────────────────────────────
+const PUBLIC_NAV = [
+  { label: 'Home',        type: 'route',  to: '/'            },
+  { label: 'Portfolio',   type: 'route',  to: '/portfolio'   },
+  { label: 'Inspiration', type: 'route',  to: '/inspiration' },
+  { label: 'Reviews',     type: 'anchor', to: '/#reviews'    },
+  { label: 'About',       type: 'route',  to: '/about'       },
+  { label: 'Contact',     type: 'route',  to: '/contact'     },
 ];
 
-// Extra nav links shown only when a user is logged in
-const AUTH_NAV_LINKS = [
-  { label: 'Portfolio',   to: '/portfolio' },
-  { label: 'Inspiration', to: '/inspiration' },
-  { label: 'About',       to: '/about' },
-  { label: 'Contact',     to: '/contact' },
-];
+// ── Shared inline style tokens ────────────────────────────────────────────────
+const DROPDOWN_STYLE = {
+  background:           'rgba(18, 18, 18, 0.98)',
+  backdropFilter:       'blur(20px)',
+  WebkitBackdropFilter: 'blur(20px)',
+  border:               '1px solid rgba(212, 175, 55, 0.12)',
+  boxShadow:            '0 15px 40px rgba(0, 0, 0, 0.45)',
+};
 
-// ── Avatar initials ───────────────────────────────────────────────────────────
-function Avatar({ user }) {
-  const initials = `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase();
+// ── Avatar — profile photo or single first-name initial ──────────────────────
+// Shows profileImage when available; falls back to the first letter of
+// firstName only (not two initials). 40×40 circle, gold border, dark fill.
+function Avatar({ user, size = 40 }) {
+  const letter = (user.firstName?.[0] ?? '?').toUpperCase();
+
+  if (user.profileImage) {
+    return (
+      <div
+        className="flex-shrink-0 overflow-hidden transition-opacity duration-150"
+        style={{
+          width: size, height: size,
+          borderRadius: '50%',
+          border: '1px solid rgba(212, 175, 55, 0.35)',
+          background: '#121212',
+        }}
+      >
+        <img
+          src={user.profileImage}
+          alt={user.firstName}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="w-8 h-8 rounded-full bg-brand-accent/20 border border-brand-accent/40
-                    flex items-center justify-center flex-shrink-0">
-      <span className="text-brand-accent text-xs font-medium tracking-wide">{initials}</span>
+    <div
+      className="flex items-center justify-center flex-shrink-0"
+      style={{
+        width: size, height: size,
+        borderRadius: '50%',
+        background: '#121212',
+        border: '1px solid rgba(212, 175, 55, 0.35)',
+      }}
+    >
+      <span style={{
+        color: '#D4AF37',
+        fontSize: size * 0.4,
+        fontWeight: 500,
+        letterSpacing: '0.02em',
+        lineHeight: 1,
+        fontFamily: 'Georgia, serif',
+      }}>
+        {letter}
+      </span>
     </div>
   );
 }
 
-// ── Notification type icon colours ────────────────────────────────────────────
+// ── Notification type dot colours ─────────────────────────────────────────────
 const TYPE_STYLES = {
-  // Booking
   booking_pending:              { dot: 'bg-yellow-400' },
-  booking_confirmed:            { dot: 'bg-blue-400' },
-  booking_cancelled:            { dot: 'bg-red-400' },
-  booking_completed:            { dot: 'bg-green-400' },
-  // Consultation
-  consultation_reply:           { dot: 'bg-brand-accent' },
+  booking_confirmed:            { dot: 'bg-blue-400'   },
+  booking_cancelled:            { dot: 'bg-red-400'    },
+  booking_completed:            { dot: 'bg-green-400'  },
+  consultation_reply:           { dot: 'bg-yellow-500' },
   consultation_agreed:          { dot: 'bg-yellow-400' },
-  consultation_closed:          { dot: 'bg-white/40' },
-  // Deposit / payment
-  deposit_confirmed:            { dot: 'bg-green-400' },
-  deposit_rejected:             { dot: 'bg-red-400' },
+  consultation_closed:          { dot: 'bg-white/40'   },
+  deposit_confirmed:            { dot: 'bg-green-400'  },
+  deposit_rejected:             { dot: 'bg-red-400'    },
   admin_deposit_submitted:      { dot: 'bg-yellow-400' },
-  // Messages
   direct_message_reply:         { dot: 'bg-purple-400' },
   admin_direct_message:         { dot: 'bg-purple-400' },
-  // Reviews
-  artist_review_reply:          { dot: 'bg-brand-accent' },
-  // Referrals
-  referral_commission_eligible: { dot: 'bg-green-400' },
-  referral_paid:                { dot: 'bg-green-400' },
-  // Admin-facing
-  admin_new_booking:            { dot: 'bg-blue-400' },
-  admin_consultation_message:   { dot: 'bg-brand-accent' },
+  artist_review_reply:          { dot: 'bg-yellow-500' },
+  referral_commission_eligible: { dot: 'bg-green-400'  },
+  referral_paid:                { dot: 'bg-green-400'  },
+  admin_new_booking:            { dot: 'bg-blue-400'   },
+  admin_consultation_message:   { dot: 'bg-yellow-500' },
   admin_new_review:             { dot: 'bg-yellow-400' },
 };
 
@@ -63,14 +102,10 @@ function NotificationBell() {
   const [open, setOpen] = useState(false);
   const bellRef = useRef(null);
 
-  // Fetch list when dropdown opens for the first time
   useEffect(() => {
-    if (open && !fetchedOnce) {
-      fetchNotifications();
-    }
+    if (open && !fetchedOnce) fetchNotifications();
   }, [open, fetchedOnce, fetchNotifications]);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e) => {
       if (bellRef.current && !bellRef.current.contains(e.target)) setOpen(false);
@@ -81,31 +116,32 @@ function NotificationBell() {
 
   const handleNotificationClick = (n) => {
     if (!n.read) markAsRead(n._id);
-    if (n.link) {
-      navigate(n.link);
-      setOpen(false);
-    }
+    if (n.link) { navigate(n.link); setOpen(false); }
   };
 
   const preview = notifications.slice(0, 5);
 
   return (
     <div className="relative" ref={bellRef}>
+      {/* Bell button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative p-1.5 text-white/50 hover:text-white transition-colors"
+        className="relative p-2 transition-colors duration-150"
+        style={{ color: 'rgba(245,245,245,0.5)' }}
+        onMouseEnter={e => e.currentTarget.style.color = '#D4AF37'}
+        onMouseLeave={e => e.currentTarget.style.color = 'rgba(245,245,245,0.5)'}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
-        {/* Bell SVG */}
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round"
             d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
-        {/* Unread badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
-                           bg-brand-accent text-black text-[10px] font-bold
-                           rounded-full flex items-center justify-center leading-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5
+                           text-black text-[9px] font-bold
+                           flex items-center justify-center leading-none"
+            style={{ background: '#D4AF37', borderRadius: '999px' }}
+          >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -113,14 +149,21 @@ function NotificationBell() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-[#111] border border-white/10 shadow-xl z-50">
+        <div className="absolute right-0 mt-2.5 w-[300px] z-[60] overflow-hidden" style={DROPDOWN_STYLE}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
-            <span className="text-white text-sm font-medium">Notifications</span>
+          <div className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '1px solid rgba(212, 175, 55, 0.10)' }}>
+            <span className="text-xs font-semibold tracking-[0.15em] uppercase"
+              style={{ color: 'rgba(245,245,245,0.5)' }}>
+              Notifications
+            </span>
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="text-white/40 text-xs hover:text-brand-accent transition-colors"
+                className="text-[11px] transition-colors duration-150"
+                style={{ color: 'rgba(212,175,55,0.6)' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#D4AF37'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(212,175,55,0.6)'}
               >
                 Mark all read
               </button>
@@ -128,16 +171,16 @@ function NotificationBell() {
           </div>
 
           {/* List */}
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-72 overflow-y-auto">
             {loading && !fetchedOnce ? (
               <div className="space-y-1 p-2">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-14 bg-white/5 animate-pulse" />
+                  <div key={i} className="h-12 animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
                 ))}
               </div>
             ) : preview.length === 0 ? (
               <div className="py-10 text-center">
-                <p className="text-white/30 text-sm">No notifications yet</p>
+                <p className="text-xs" style={{ color: 'rgba(245,245,245,0.25)' }}>No notifications yet</p>
               </div>
             ) : (
               <ul>
@@ -147,20 +190,25 @@ function NotificationBell() {
                     <li key={n._id}>
                       <button
                         onClick={() => handleNotificationClick(n)}
-                        className={`w-full text-left flex gap-3 px-4 py-3 hover:bg-white/5 transition-colors
-                                    border-b border-white/5 last:border-0
-                                    ${!n.read ? 'bg-white/3' : ''}`}
+                        className="w-full text-left flex gap-3 px-4 py-3 transition-colors duration-150"
+                        style={{
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          background: !n.read ? 'rgba(212,175,55,0.03)' : 'transparent',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                        onMouseLeave={e => e.currentTarget.style.background = !n.read ? 'rgba(212,175,55,0.03)' : 'transparent'}
                       >
-                        {/* Unread dot */}
                         <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${!n.read ? dot : 'bg-transparent'}`} />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-medium truncate ${n.read ? 'text-white/50' : 'text-white'}`}>
+                          <p className="text-xs font-medium truncate"
+                            style={{ color: n.read ? 'rgba(245,245,245,0.45)' : '#F5F5F5' }}>
                             {n.title}
                           </p>
-                          <p className="text-white/35 text-xs mt-0.5 leading-relaxed line-clamp-2">
+                          <p className="text-[11px] mt-0.5 leading-relaxed line-clamp-2"
+                            style={{ color: 'rgba(245,245,245,0.30)' }}>
                             {n.message}
                           </p>
-                          <p className="text-white/20 text-[10px] mt-1">
+                          <p className="text-[10px] mt-1" style={{ color: 'rgba(245,245,245,0.18)' }}>
                             {new Date(n.createdAt).toLocaleString('en-KE', {
                               month: 'short', day: 'numeric',
                               hour: '2-digit', minute: '2-digit',
@@ -176,13 +224,16 @@ function NotificationBell() {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-white/8 px-4 py-2.5">
+          <div className="px-4 py-2.5" style={{ borderTop: '1px solid rgba(212,175,55,0.10)' }}>
             <Link
               to="/notifications"
               onClick={() => setOpen(false)}
-              className="text-xs text-brand-accent/70 hover:text-brand-accent transition-colors"
+              className="text-[11px] tracking-wider uppercase transition-colors duration-150"
+              style={{ color: 'rgba(212,175,55,0.6)' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#D4AF37'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(212,175,55,0.6)'}
             >
-              View all notifications →
+              View all →
             </Link>
           </div>
         </div>
@@ -191,23 +242,115 @@ function NotificationBell() {
   );
 }
 
+// ── NavItem — handles both route and anchor links ─────────────────────────────
+function NavItem({ item, active, onClick }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleClick = (e) => {
+    if (item.type === 'anchor') {
+      e.preventDefault();
+      const hash = item.to.replace('/', '');
+      if (location.pathname === '/') {
+        const el = document.querySelector(hash);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        navigate('/' + hash);
+      }
+    }
+    onClick?.();
+  };
+
+  // Shared link style applied via inline events for precision
+  const baseStyle = { color: active ? '#D4AF37' : 'rgba(245,245,245,0.60)' };
+
+  const linkCls = 'text-[11px] tracking-[0.14em] uppercase font-medium transition-colors duration-150';
+
+  if (item.type === 'anchor') {
+    return (
+      <a
+        href={item.to}
+        onClick={handleClick}
+        className={linkCls}
+        style={baseStyle}
+        onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#D4AF37'; }}
+        onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'rgba(245,245,245,0.60)'; }}
+      >
+        {item.label}
+      </a>
+    );
+  }
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/'}
+      onClick={onClick}
+      className={linkCls}
+      style={({ isActive }) => ({ color: isActive ? '#D4AF37' : 'rgba(245,245,245,0.60)' })}
+      onMouseEnter={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.color = '#D4AF37'; }}
+      onMouseLeave={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.color = 'rgba(245,245,245,0.60)'; }}
+    >
+      {item.label}
+    </NavLink>
+  );
+}
+
+// ── Profile dropdown section label ───────────────────────────────────────────
+function DropdownSection({ label }) {
+  return (
+    <p className="px-4 pt-3 pb-1.5 text-[9px] font-semibold tracking-[0.20em] uppercase"
+      style={{ color: 'rgba(212,175,55,0.50)' }}>
+      {label}
+    </p>
+  );
+}
+
+// ── Profile dropdown link row ─────────────────────────────────────────────────
+function DropdownLink({ to, state, label, onClick }) {
+  return (
+    <Link
+      to={to}
+      state={state}
+      onClick={onClick}
+      className="flex items-center px-4 py-[7px] text-[12px] tracking-wide transition-colors duration-150"
+      style={{ color: 'rgba(245,245,245,0.60)' }}
+      onMouseEnter={e => {
+        e.currentTarget.style.color = '#D4AF37';
+        e.currentTarget.style.background = 'rgba(212,175,55,0.05)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.color = 'rgba(245,245,245,0.60)';
+        e.currentTarget.style.background = 'transparent';
+      }}
+    >
+      {label}
+    </Link>
+  );
+}
+
+// ── Main Navbar ───────────────────────────────────────────────────────────────
 function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [menuOpen, setMenuOpen]         = useState(false);
+  const [menuOpen,     setMenuOpen]     = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [scrolled, setScrolled]         = useState(false);
+  const [scrolled,     setScrolled]     = useState(false);
   const dropdownRef = useRef(null);
 
-  // Transparent → solid after 100px scroll
+  // Close mobile menu on route change
+  useEffect(() => { setMenuOpen(false); }, [location.pathname, location.hash]);
+
+  // Scroll threshold: 50px
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 100);
+    const onScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Close dropdown on outside click
+  // Close profile dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -225,214 +368,168 @@ function Navbar() {
     navigate('/');
   };
 
+  const isAnchorActive = (item) => {
+    if (item.type !== 'anchor') return false;
+    const hash = item.to.split('#')[1];
+    return location.pathname === '/' && location.hash === `#${hash}`;
+  };
+
+  const isAdmin = user?.role === 'admin';
+
+  // ── Header background ─────────────────────────────────────────────────────
+  // At top of page: rgba(18,18,18,0.90) / blur(16px) — spec value
+  // After scroll:   rgba(18,18,18,0.96) / blur(18px) — more opaque
+  const headerStyle = scrolled || menuOpen
+    ? {
+        background:           'rgba(18, 18, 18, 0.96)',
+        backdropFilter:       'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+        borderBottom:         '1px solid rgba(212, 175, 55, 0.18)',
+        boxShadow:            '0 10px 30px rgba(0, 0, 0, 0.35)',
+      }
+    : {
+        background:           'rgba(18, 18, 18, 0.90)',
+        backdropFilter:       'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom:         '1px solid rgba(212, 175, 55, 0.12)',
+        boxShadow:            '0 8px 30px rgba(0, 0, 0, 0.35)',
+      };
+
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500
-        ${scrolled
-          ? 'bg-[#0B0B0B]/95 backdrop-blur-md border-b border-white/8 shadow-[0_4px_24px_rgba(0,0,0,0.4)]'
-          : 'bg-transparent border-b border-transparent'
-        }`}
+      className="fixed top-0 left-0 right-0 z-50 transition-all duration-500"
+      style={headerStyle}
     >
-      <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      {/* ── Main nav row — 68px tall ── */}
+      <nav className="max-w-7xl mx-auto px-8 h-[68px] flex items-center gap-10">
 
-        {/* Logo */}
-        <Link to="/" className="text-brand-accent font-display text-xl tracking-widest uppercase flex-shrink-0">
+        {/* Logo — fixed width so centred nav truly centres */}
+        <Link
+          to="/"
+          className="font-display text-lg tracking-[0.25em] uppercase flex-shrink-0"
+          style={{ color: '#D4AF37', minWidth: 'max-content' }}
+        >
           His Inks Studio
         </Link>
 
-        {/* Desktop nav links */}
-        <ul className="hidden md:flex items-center gap-8">
-          {NAV_LINKS.map((link) => (
-            <li key={link.to}>
-              <NavLink
-                to={link.to}
-                end={link.to === '/'}
-                className={({ isActive }) => `nav-link ${isActive ? 'text-brand-accent' : ''}`}
-              >
-                {link.label}
-              </NavLink>
-            </li>
-          ))}
-          {user && user.role !== 'admin' && AUTH_NAV_LINKS.map((link) => (
-            <li key={link.to}>
-              <NavLink
-                to={link.to}
-                className={({ isActive }) => `nav-link ${isActive ? 'text-brand-accent' : ''}`}
-              >
-                {link.label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
+        {/* ── Desktop nav links ── */}
+        {!isAdmin && (
+          <ul className="hidden lg:flex items-center gap-8 flex-1 justify-center">
+            {PUBLIC_NAV.map((item) => (
+              <li key={item.to}>
+                <NavItem item={item} active={isAnchorActive(item)} />
+              </li>
+            ))}
+          </ul>
+        )}
 
-        {/* Desktop right */}
-        <div className="hidden md:flex items-center gap-4">
+        {isAdmin && (
+          <div className="hidden lg:flex flex-1 justify-center">
+            <Link
+              to="/admin"
+              className="text-[11px] tracking-[0.14em] uppercase font-medium transition-colors duration-150"
+              style={{ color: 'rgba(212,175,55,0.70)' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#D4AF37'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(212,175,55,0.70)'}
+            >
+              Admin Dashboard
+            </Link>
+          </div>
+        )}
+
+        {/* ── Right cluster: bell · profile · CTA ── */}
+        <div className="hidden lg:flex items-center gap-4 flex-shrink-0">
           {user ? (
             <>
-              {/* Admin shortcut */}
-              {user.role === 'admin' && (
-                <Link to="/admin" className="nav-link text-brand-accent/70 hover:text-brand-accent">
-                  Dashboard
-                </Link>
-              )}
-
-              {/* Notification bell */}
               <NotificationBell />
 
-              {/* Profile dropdown */}
+              {/* Profile dropdown trigger */}
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen((o) => !o)}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  className="flex items-center gap-2 group"
+                  style={{ outline: 'none' }}
                   aria-label="Account menu"
+                  aria-expanded={dropdownOpen}
                 >
-                  <Avatar user={user} />
-                  <span className="text-white/70 text-sm max-w-[120px] truncate">
-                    {user.firstName}
-                  </span>
+                  {/* Avatar — scales hover opacity gently */}
+                  <div style={{ opacity: dropdownOpen ? 0.85 : 1, transition: 'opacity 150ms' }}>
+                    <Avatar user={user} size={36} />
+                  </div>
                   <svg
-                    className={`w-3.5 h-3.5 text-white/30 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`}
-                    fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+                    className={`w-3 h-3 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
+                    style={{ color: 'rgba(245,245,245,0.25)' }}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
+                {/* ── Profile dropdown panel ── */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-[#111] border border-white/10 shadow-xl py-1 z-50">
-                    {/* User info */}
-                    <div className="px-4 py-3 border-b border-white/8">
-                      <p className="text-white text-sm font-medium truncate">
+                  <div className="absolute right-0 mt-3 w-[200px] z-[60] overflow-hidden" style={DROPDOWN_STYLE}>
+
+                    {/* Identity header */}
+                    <div className="px-4 py-3.5"
+                      style={{ borderBottom: '1px solid rgba(212,175,55,0.10)' }}>
+                      <p className="text-[13px] font-medium truncate" style={{ color: '#F5F5F5' }}>
                         {user.firstName} {user.lastName}
                       </p>
-                      <p className="text-white/35 text-xs truncate mt-0.5">{user.email}</p>
+                      <p className="text-[11px] mt-0.5 truncate" style={{ color: 'rgba(245,245,245,0.30)' }}>
+                        {user.email}
+                      </p>
                     </div>
 
-                    {/* Links */}
+                    {/* Customer account links — grouped */}
                     {user.role === 'customer' && (
                       <>
-                        <Link
+                        {/* Account group */}
+                        <DropdownSection label="Account" />
+                        <DropdownLink
                           to="/dashboard"
+                          state={{ tab: 'profile' }}
+                          label="My Profile"
                           onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-accent/80
-                                     hover:text-brand-accent hover:bg-brand-accent/5 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                          </svg>
-                          My Dashboard
-                        </Link>
-                        <Link
-                          to="/my-bookings"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
-                                     hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                          </svg>
-                          My Bookings
-                        </Link>
-                        <Link
-                          to="/my-consultation"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
-                                     hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                          </svg>
-                          My Consultation
-                        </Link>
-                        <Link
-                          to="/my-reviews"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
-                                     hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-                          </svg>
-                          My Reviews
-                        </Link>
-                        <Link
-                          to="/messages"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
-                                     hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                          </svg>
-                          Messages
-                        </Link>
-                        <Link
-                          to="/referrals"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
-                                     hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                          </svg>
-                          Referrals
-                        </Link>
-                        <Link
-                          to="/before-appointment"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
-                                     hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-                          </svg>
-                          Before Appointment
-                        </Link>
-                        <Link
-                          to="/aftercare"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
-                                     hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Aftercare Guide
-                        </Link>
+                        />
+                        <DropdownLink to="/dashboard"       label="My Dashboard"    onClick={() => setDropdownOpen(false)} />
+                        <DropdownLink to="/my-bookings"     label="My Bookings"     onClick={() => setDropdownOpen(false)} />
+                        <DropdownLink to="/my-consultation" label="My Consultation" onClick={() => setDropdownOpen(false)} />
+                        <DropdownLink to="/my-reviews"      label="My Reviews"      onClick={() => setDropdownOpen(false)} />
+
+                        {/* Support group */}
+                        <div className="mt-1" style={{ borderTop: '1px solid rgba(212,175,55,0.08)' }}>
+                          <DropdownSection label="Support" />
+                          <DropdownLink to="/messages"           label="Messages"           onClick={() => setDropdownOpen(false)} />
+                          <DropdownLink to="/referrals"          label="Referrals"          onClick={() => setDropdownOpen(false)} />
+                          <DropdownLink to="/before-appointment" label="Before Appointment" onClick={() => setDropdownOpen(false)} />
+                          <DropdownLink to="/aftercare"          label="Aftercare Guide"    onClick={() => setDropdownOpen(false)} />
+                        </div>
                       </>
                     )}
 
                     {user.role === 'admin' && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60
-                                   hover:text-white hover:bg-white/5 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round"
-                            d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                        </svg>
-                        Admin Dashboard
-                      </Link>
+                      <>
+                        <DropdownSection label="Admin" />
+                        <DropdownLink to="/admin" label="Admin Dashboard" onClick={() => setDropdownOpen(false)} />
+                      </>
                     )}
 
-                    {/* Logout */}
-                    <div className="border-t border-white/8 mt-1 pt-1">
+                    {/* Sign out */}
+                    <div className="pb-1.5 mt-1" style={{ borderTop: '1px solid rgba(212,175,55,0.10)' }}>
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm
-                                   text-white/50 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+                        className="w-full flex items-center gap-2.5 px-4 py-[7px] text-[12px] tracking-wide transition-colors duration-150"
+                        style={{ color: 'rgba(245,245,245,0.35)' }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.color = '#f87171';
+                          e.currentTarget.style.background = 'rgba(248,113,113,0.05)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.color = 'rgba(245,245,245,0.35)';
+                          e.currentTarget.style.background = 'transparent';
+                        }}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round"
                             d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
                         </svg>
@@ -444,117 +541,128 @@ function Navbar() {
               </div>
             </>
           ) : (
-            <Link to="/login" className="nav-link">Sign In</Link>
+            /* Guest */
+            <Link
+              to="/login"
+              className="text-[11px] tracking-[0.14em] uppercase font-medium transition-colors duration-150"
+              style={{ color: 'rgba(245,245,245,0.60)' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#D4AF37'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(245,245,245,0.60)'}
+            >
+              Sign In
+            </Link>
           )}
 
-          {user?.role !== 'admin' && (
-            <Link to="/book" className="btn-primary text-xs py-2 px-5">Book Now</Link>
+          {/* PRIMARY CTA */}
+          {!isAdmin && (
+            <Link
+              to="/my-consultation"
+              className="flex-shrink-0 text-[11px] font-semibold tracking-[0.15em] uppercase px-5 py-2.5
+                         transition-all duration-200"
+              style={{
+                background: '#D4AF37',
+                color:      '#111111',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#c9a430'}
+              onMouseLeave={e => e.currentTarget.style.background = '#D4AF37'}
+            >
+              Start Consultation
+            </Link>
           )}
         </div>
+
+        {/* ── Hamburger ── */}
         <button
-          className="md:hidden flex flex-col gap-1.5 p-2 ml-2"
+          className="lg:hidden flex flex-col gap-1.5 p-2 ml-auto flex-shrink-0"
           onClick={() => setMenuOpen((o) => !o)}
-          aria-label="Toggle menu"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
         >
-          <span className={`w-6 h-px bg-white transition-transform duration-200 ${menuOpen ? 'rotate-45 translate-y-2.5' : ''}`} />
-          <span className={`w-6 h-px bg-white transition-opacity duration-200 ${menuOpen ? 'opacity-0' : ''}`} />
-          <span className={`w-6 h-px bg-white transition-transform duration-200 ${menuOpen ? '-rotate-45 -translate-y-2.5' : ''}`} />
+          <span className={`w-5 h-px transition-all duration-200 ${menuOpen ? 'rotate-45 translate-y-[7px]' : ''}`}
+            style={{ background: '#F5F5F5' }} />
+          <span className={`w-5 h-px transition-opacity duration-200 ${menuOpen ? 'opacity-0' : ''}`}
+            style={{ background: '#F5F5F5' }} />
+          <span className={`w-5 h-px transition-all duration-200 ${menuOpen ? '-rotate-45 -translate-y-[7px]' : ''}`}
+            style={{ background: '#F5F5F5' }} />
         </button>
       </nav>
 
-      {/* ── Mobile menu ──────────────────────────────────────────────────────── */}
-      {menuOpen && (
-        <div className="md:hidden bg-[#0B0B0B]/98 backdrop-blur-md border-t border-white/8 px-6 py-6 space-y-4">
-          {NAV_LINKS.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.to === '/'}
-              onClick={() => setMenuOpen(false)}
-              className={({ isActive }) =>
-                `block text-sm tracking-widest uppercase py-1 transition-colors ${
-                  isActive ? 'text-brand-accent' : 'text-white/60 hover:text-white'
-                }`
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
-          {user && user.role !== 'admin' && AUTH_NAV_LINKS.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              onClick={() => setMenuOpen(false)}
-              className={({ isActive }) =>
-                `block text-sm tracking-widest uppercase py-1 transition-colors ${
-                  isActive ? 'text-brand-accent' : 'text-white/60 hover:text-white'
-                }`
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
+      {/* ── Mobile / tablet menu ─────────────────────────────────────────────── */}
+      <div
+        className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out
+          ${menuOpen ? 'max-h-[90vh] opacity-100' : 'max-h-0 opacity-0'}`}
+      >
+        <div
+          className="px-6 py-5"
+          style={{
+            background:           'rgba(18, 18, 18, 0.98)',
+            backdropFilter:       'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderTop:            '1px solid rgba(212, 175, 55, 0.14)',
+          }}
+        >
+          {/* Public nav */}
+          {!isAdmin && (
+            <nav className="space-y-0.5 mb-5">
+              {PUBLIC_NAV.map((item) => (
+                <MobileNavItem
+                  key={item.to}
+                  item={item}
+                  active={isAnchorActive(item)}
+                  onClose={() => setMenuOpen(false)}
+                />
+              ))}
+            </nav>
+          )}
 
-          <div className="border-t border-white/8 pt-4 space-y-1">
+          {/* Account section */}
+          <div className="pt-4 space-y-0.5" style={{ borderTop: '1px solid rgba(212,175,55,0.12)' }}>
             {user ? (
               <>
-                {/* User info */}
-                <div className="flex items-center gap-3 py-2 mb-2">
+                {/* Identity */}
+                <div className="flex items-center gap-3 py-3 mb-1">
                   <Avatar user={user} />
                   <div className="min-w-0">
-                    <p className="text-white text-sm truncate">{user.firstName} {user.lastName}</p>
-                    <p className="text-white/30 text-xs truncate">{user.email}</p>
+                    <p className="text-sm truncate" style={{ color: '#F5F5F5' }}>
+                      {user.firstName} {user.lastName}
+                    </p>
+                    <p className="text-xs truncate" style={{ color: 'rgba(245,245,245,0.28)' }}>
+                      {user.email}
+                    </p>
                   </div>
                 </div>
 
                 {user.role === 'admin' && (
-                  <Link to="/admin" onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 text-sm tracking-widest uppercase text-brand-accent/80 hover:text-brand-accent py-2">
-                    Dashboard
-                  </Link>
+                  <MobileAccountLink to="/admin" label="Admin Dashboard" onClick={() => setMenuOpen(false)} accent />
                 )}
+
                 {user.role === 'customer' && (
                   <>
-                    <Link to="/dashboard" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-brand-accent/80 hover:text-brand-accent py-2">
-                      My Dashboard
-                    </Link>
-                    <Link to="/my-bookings" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
-                      My Bookings
-                    </Link>
-                    <Link to="/my-consultation" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
-                      My Consultation
-                    </Link>
-                    <Link to="/my-reviews" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
-                      My Reviews
-                    </Link>
-                    <Link to="/messages" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
-                      Messages
-                    </Link>
-                    <Link to="/notifications" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
-                      Notifications
-                    </Link>
-                    <Link to="/referrals" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
-                      Referrals
-                    </Link>
-                    <Link to="/before-appointment" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
-                      Before Appointment
-                    </Link>
-                    <Link to="/aftercare" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
-                      Aftercare Guide
-                    </Link>                  </>
+                    <MobileAccountLink
+                      to="/dashboard"
+                      state={{ tab: 'profile' }}
+                      label="My Profile"
+                      onClick={() => setMenuOpen(false)}
+                      accent
+                    />
+                    <MobileAccountLink to="/dashboard"          label="My Dashboard"       onClick={() => setMenuOpen(false)} />
+                    <MobileAccountLink to="/my-bookings"        label="My Bookings"        onClick={() => setMenuOpen(false)} />
+                    <MobileAccountLink to="/my-consultation"    label="My Consultation"    onClick={() => setMenuOpen(false)} />
+                    <MobileAccountLink to="/my-reviews"         label="My Reviews"         onClick={() => setMenuOpen(false)} />
+                    <MobileAccountLink to="/messages"           label="Messages"           onClick={() => setMenuOpen(false)} />
+                    <MobileAccountLink to="/notifications"      label="Notifications"      onClick={() => setMenuOpen(false)} />
+                    <MobileAccountLink to="/referrals"          label="Referrals"          onClick={() => setMenuOpen(false)} />
+                    <MobileAccountLink to="/before-appointment" label="Before Appointment" onClick={() => setMenuOpen(false)} />
+                    <MobileAccountLink to="/aftercare"          label="Aftercare Guide"    onClick={() => setMenuOpen(false)} />
+                  </>
                 )}
+
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 text-sm tracking-widest uppercase text-white/40 hover:text-red-400 py-2 transition-colors"
+                  className="flex items-center gap-2 text-xs tracking-[0.12em] uppercase py-2.5 mt-1 transition-colors duration-150"
+                  style={{ color: 'rgba(245,245,245,0.35)' }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(245,245,245,0.35)'}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round"
@@ -565,21 +673,103 @@ function Navbar() {
               </>
             ) : (
               <Link to="/login" onClick={() => setMenuOpen(false)}
-                className="block text-sm tracking-widest uppercase text-white/60 hover:text-white py-2">
+                className="block text-xs tracking-[0.14em] uppercase py-2.5 transition-colors duration-150"
+                style={{ color: 'rgba(245,245,245,0.55)' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#D4AF37'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(245,245,245,0.55)'}
+              >
                 Sign In
               </Link>
             )}
-            <div className="pt-2">
-              {user?.role !== 'admin' && (
-                <Link to="/book" onClick={() => setMenuOpen(false)} className="btn-primary block text-center text-xs py-3">
-                  Book Now
+
+            {/* Mobile CTA */}
+            {!isAdmin && (
+              <div className="pt-4">
+                <Link
+                  to="/my-consultation"
+                  onClick={() => setMenuOpen(false)}
+                  className="block text-center text-[11px] font-semibold tracking-[0.15em] uppercase py-3
+                             transition-all duration-200"
+                  style={{ background: '#D4AF37', color: '#111111' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#c9a430'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#D4AF37'}
+                >
+                  Start Consultation
                 </Link>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </header>
+  );
+}
+
+// ── Mobile NavItem — handles anchor + route ───────────────────────────────────
+function MobileNavItem({ item, active, onClose }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleClick = (e) => {
+    if (item.type === 'anchor') {
+      e.preventDefault();
+      const hash = item.to.replace('/', '');
+      onClose();
+      if (location.pathname === '/') {
+        const el = document.querySelector(hash);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        navigate('/' + hash);
+      }
+    } else {
+      onClose();
+    }
+  };
+
+  const activeCls = 'text-xs tracking-[0.14em] uppercase font-medium block py-2.5 transition-colors duration-150';
+
+  if (item.type === 'anchor') {
+    return (
+      <a
+        href={item.to}
+        onClick={handleClick}
+        className={activeCls}
+        style={{ color: active ? '#D4AF37' : 'rgba(245,245,245,0.55)' }}
+        onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#D4AF37'; }}
+        onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'rgba(245,245,245,0.55)'; }}
+      >
+        {item.label}
+      </a>
+    );
+  }
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/'}
+      onClick={onClose}
+      className={activeCls}
+      style={({ isActive }) => ({ color: isActive ? '#D4AF37' : 'rgba(245,245,245,0.55)' })}
+    >
+      {item.label}
+    </NavLink>
+  );
+}
+
+// ── Mobile account link ───────────────────────────────────────────────────────
+function MobileAccountLink({ to, state, label, onClick, accent }) {
+  return (
+    <Link
+      to={to}
+      state={state}
+      onClick={onClick}
+      className="block text-xs tracking-[0.12em] uppercase py-2 transition-colors duration-150"
+      style={{ color: accent ? 'rgba(212,175,55,0.80)' : 'rgba(245,245,245,0.55)' }}
+      onMouseEnter={e => e.currentTarget.style.color = '#D4AF37'}
+      onMouseLeave={e => e.currentTarget.style.color = accent ? 'rgba(212,175,55,0.80)' : 'rgba(245,245,245,0.55)'}
+    >
+      {label}
+    </Link>
   );
 }
 

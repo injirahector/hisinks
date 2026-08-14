@@ -88,6 +88,10 @@ export function AuthProvider({ children }) {
     login,
     logout,
     googleLogin,
+    // Allows any component to push a partial or full user update into context
+    // without a full re-fetch. Used after profile edits (photo, name, etc.)
+    // so the navbar avatar and any other consumer reflects the change instantly.
+    updateUser: (updated) => setUser((prev) => ({ ...prev, ...updated })),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

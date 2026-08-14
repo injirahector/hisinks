@@ -2339,7 +2339,7 @@ function ChartsTab({ bookings, reviews, loading }) {
 
 /* ── CustomerDashboard (main) ─────────────────────────────────── */
 function CustomerDashboard() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, updateUser } = useAuth();
   const {
     notifications,
     unreadCount,
@@ -2414,14 +2414,10 @@ function CustomerDashboard() {
     }
   }, [fetchedOnce, fetchNotifications]);
 
-  // Callback to refresh user in auth context (or just trigger a re-fetch)
+  // Push profile changes into AuthContext so the navbar avatar and any other
+  // consumer updates immediately — no page reload needed.
   function handleProfileUpdate(updatedUser) {
-    // If auth context exposes a setUser or refresh, call it here.
-    // For now we rely on the local form re-render via the parent re-mount,
-    // but many auth contexts expose a refresh method:
-    if (typeof window !== 'undefined') {
-      // Soft reload user context if available; otherwise no-op.
-    }
+    if (updatedUser) updateUser(updatedUser);
   }
 
   if (authLoading) {

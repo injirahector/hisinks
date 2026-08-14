@@ -432,10 +432,23 @@ function MyConsultation() {
       .catch(() => setInspirationLoadErr('Could not load the inspiration. It may have been deleted.'));
   }, [routeInspirationId]);
 
-  // ── Auto-scroll to bottom when messages arrive ────────────────────────────
+  // ── Auto-scroll to bottom only when a NEW message arrives ────────────────
+  // consultation starts as `false` (loading) then resolves to an object or null.
+  // We must not start counting until the consultation is actually loaded,
+  // otherwise the transition false→object looks like "new messages arrived"
+  // and triggers a scroll on every page open/reload.
+  const prevMsgCountRef = useRef(null);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [consultation?.messages?.length]);
+    // Still loading — do not set the baseline yet
+    if (consultation === false) return;
+
+    const count = consultation?.messages?.length ?? 0;
+    if (prevMsgCountRef.current !== null && count > prevMsgCountRef.current) {
+      // A genuinely new message was added after load — scroll into view
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMsgCountRef.current = count;
+  }, [consultation, consultation?.messages?.length]);
 
   const handleAttachChange = (e) => {
     const file = e.target.files?.[0];
@@ -1178,12 +1191,12 @@ function MyConsultation() {
               />
             </>
           ) : (
-            <div className="border-t border-white/8 px-5 py-3 text-white/25 text-xs text-center">
+            <div className="border-t border-white/8 px-5 py-3 text-xs text-center">
               {status === 'deposit_paid'
-                ? 'Deposit confirmed — use the button above to book.'
+                ? <span className="text-white/25">Deposit confirmed — use the button above to book.</span>
                 : status === 'closed'
-                ? 'This consultation is closed. Use the button above to start a new one.'
-                : 'Use the button above to start a new consultation.'}
+                ? <span className="text-white/60">This consultation is closed. Use the button above to start a new one.</span>
+                : <span className="text-white/25">Use the button above to start a new consultation.</span>}
             </div>
           )}
         </div>

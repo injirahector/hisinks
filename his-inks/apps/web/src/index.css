@@ -4,7 +4,11 @@
 
 @layer base {
   html {
-    scroll-behavior: smooth;
+    /* scroll-behavior is intentionally NOT set on html — setting it globally
+       causes the browser to smoothly animate scroll-restoration on navigation
+       and reload, making pages visibly slide in from the middle/bottom.
+       Smooth scrolling for anchor links is handled programmatically via
+       el.scrollIntoView({ behavior: 'smooth' }) in the NavItem click handler. */
   }
 
   body {

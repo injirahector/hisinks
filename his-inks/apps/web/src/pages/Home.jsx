@@ -88,18 +88,29 @@ function Home() {
   const { isAuthenticated } = useAuth();
   const [reviews,        setReviews]        = useState([]);
   const [stats,          setStats]          = useState(null);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsError,   setReviewsError]   = useState(false);
   const [tattoos,        setTattoos]        = useState([]);
   const [tattooLoading,  setTattooLoading]  = useState(true);
   const [filter,         setFilter]         = useState('All');
   const [selected,       setSelected]       = useState(null);
 
   useEffect(() => {
-    api.get('/reviews/featured?limit=3')
-      .then((r) => setReviews(r.data.data.reviews))
-      .catch(() => {});
-    api.get('/reviews/stats')
-      .then((r) => setStats(r.data.data.stats))
-      .catch(() => {});
+    // Fetch reviews and stats together — both must settle before we stop loading
+    Promise.all([
+      api.get('/reviews/featured?limit=3'),
+      api.get('/reviews/stats'),
+    ])
+      .then(([reviewsRes, statsRes]) => {
+        setReviews(reviewsRes.data.data.reviews);
+        setStats(statsRes.data.data.stats);
+        setReviewsLoading(false);
+      })
+      .catch(() => {
+        setReviewsError(true);
+        setReviewsLoading(false);
+      });
+
     api.get('/tattoos?limit=100')
       .then((r) => { setTattoos(r.data.data.tattoos); setTattooLoading(false); })
       .catch(() => setTattooLoading(false));
@@ -237,14 +248,18 @@ function Home() {
         </div>
       </section>
 
-      {/* ── Studio Stats Bar ──────────────────────────────────────────────── */}
       <section className="border-y border-white/5 bg-white/[0.015]">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
               { value: '500+', label: 'Tattoos Done' },
               { value: '100%', label: 'Custom Designs' },
-              { value: '5★',   label: 'Client Rating' },
+              {
+                value: stats && stats.totalReviews > 0
+                  ? `${stats.averageRating}★`
+                  : '5★',
+                label: 'Client Rating',
+              },
               { value: 'Private', label: 'Appointment Only' },
             ].map((stat) => (
               <div key={stat.label}>
@@ -507,67 +522,217 @@ function Home() {
       </section>
 
       {/* ── Reviews ───────────────────────────────────────────────────────── */}
-      {(stats?.totalReviews > 0 || reviews.length > 0) && (
-        <section id="reviews" className="max-w-7xl mx-auto px-6 py-28">
-          <div className="text-center mb-16">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-8 h-px bg-brand-accent" />
-              <p className="text-brand-accent tracking-[0.3em] uppercase text-xs">Client Stories</p>
-              <div className="w-8 h-px bg-brand-accent" />
-            </div>
-            <h2 className="font-display text-4xl md:text-5xl mb-4">What Clients Say</h2>
-            {stats && stats.totalReviews > 0 && (
-              <div className="flex items-center justify-center gap-3 mt-5">
+      <section id="reviews" className="max-w-7xl mx-auto px-6 py-28">
+
+        {/* Section header */}
+        <div className="text-center mb-14">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-8 h-px bg-brand-accent" />
+            <p className="text-brand-accent tracking-[0.3em] uppercase text-xs">Client Stories</p>
+            <div className="w-8 h-px bg-brand-accent" />
+          </div>
+          <h2 className="font-display text-4xl md:text-5xl mb-4">What Clients Say</h2>
+          <p className="text-white/35 text-sm max-w-md mx-auto leading-relaxed">
+            Real experiences from clients who trusted His Inks with their ink.
+          </p>
+
+          {/* Rating summary — only when we have real data */}
+          {!reviewsLoading && !reviewsError && stats && stats.totalReviews > 0 && (
+            <div className="mt-8 inline-flex flex-col items-center gap-1">
+              <div className="flex items-center gap-2">
                 <StarDisplay rating={Math.round(stats.averageRating)} />
-                <span className="text-brand-accent font-display text-xl">{stats.averageRating}</span>
-                <span className="text-white/25 text-sm">
-                  from {stats.totalReviews} {stats.totalReviews === 1 ? 'review' : 'reviews'}
+                <span className="font-display text-2xl text-brand-accent ml-1">
+                  {stats.averageRating}
                 </span>
               </div>
-            )}
-          </div>
+              <p className="text-white/25 text-xs tracking-wide">
+                Based on{' '}
+                <span className="text-white/45">
+                  {stats.totalReviews} verified {stats.totalReviews === 1 ? 'review' : 'reviews'}
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
 
-          {reviews.length > 0 && (
-            <div className="grid md:grid-cols-3 gap-6">
-              {reviews.map((r) => (
-                <div key={r._id}
-                  className="border border-white/8 p-7 flex flex-col gap-4
-                             hover:border-brand-accent/25 transition-colors duration-300">
-                  <StarDisplay rating={r.rating} />
+        {/* ── Loading skeleton ── */}
+        {reviewsLoading && (
+          <div className="grid md:grid-cols-3 gap-6">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="border border-white/8 p-7 space-y-4 animate-pulse">
+                <div className="flex gap-1">
+                  {[0,1,2,3,4].map((s) => (
+                    <div key={s} className="w-3.5 h-3.5 rounded-sm bg-white/10" />
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-white/8 rounded w-3/4" />
+                  <div className="h-3 bg-white/6 rounded w-full" />
+                  <div className="h-3 bg-white/6 rounded w-5/6" />
+                  <div className="h-3 bg-white/6 rounded w-4/6" />
+                </div>
+                <div className="border-t border-white/8 pt-4 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-white/10" />
+                  <div className="h-3 bg-white/8 rounded w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── API error — silent, section collapses gracefully ── */}
+        {!reviewsLoading && reviewsError && null}
+
+        {/* ── No reviews yet ── */}
+        {!reviewsLoading && !reviewsError && (!stats || stats.totalReviews === 0) && (
+          <div className="text-center py-16 border border-white/5">
+            <div className="w-12 h-12 border border-white/10 flex items-center justify-center mx-auto mb-6">
+              <svg className="w-5 h-5 text-brand-accent/50" fill="none" stroke="currentColor"
+                strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+              </svg>
+            </div>
+            <p className="text-white/25 text-sm tracking-wide mb-1">No reviews yet</p>
+            <p className="text-white/15 text-xs">Be the first to share your experience</p>
+          </div>
+        )}
+
+        {/* ── Review cards ── */}
+        {!reviewsLoading && !reviewsError && reviews.length > 0 && (
+          <div className={`grid gap-6 ${
+            reviews.length === 1
+              ? 'max-w-md mx-auto'
+              : reviews.length === 2
+              ? 'md:grid-cols-2 max-w-3xl mx-auto'
+              : 'md:grid-cols-3'
+          }`}>
+            {reviews.map((r) => {
+              const initials =
+                (r.customer?.firstName?.[0] || '') +
+                (r.customer?.lastName?.[0] || '');
+              const displayName = [r.customer?.firstName, r.customer?.lastName]
+                .filter(Boolean)
+                .join(' ') || 'Client';
+              // A review is verified if it's linked to an appointment (completed booking)
+              const isVerified = Boolean(r.appointment);
+              // Format the date if available
+              const reviewDate = r.createdAt
+                ? new Date(r.createdAt).toLocaleDateString('en-KE', {
+                    month: 'short', year: 'numeric',
+                  })
+                : null;
+
+              return (
+                <div
+                  key={r._id}
+                  className="group border border-white/8 p-7 flex flex-col gap-5
+                             hover:border-brand-accent/25 transition-colors duration-300"
+                >
+                  {/* Stars + date */}
+                  <div className="flex items-start justify-between gap-2">
+                    <StarDisplay rating={r.rating} />
+                    {reviewDate && (
+                      <span className="text-white/20 text-[10px] tracking-wide flex-shrink-0 mt-0.5">
+                        {reviewDate}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Title */}
                   {r.title && (
-                    <p className="text-white font-display text-lg leading-snug">{r.title}</p>
+                    <p className="text-white font-display text-base leading-snug -mb-1">
+                      {r.title}
+                    </p>
                   )}
+
+                  {/* Comment */}
                   <p className="text-white/45 text-sm leading-relaxed flex-1">
                     &ldquo;{r.comment}&rdquo;
                   </p>
-                  {r.artistReply && (
-                    <div className="border-t border-white/8 pt-4">
-                      <p className="text-brand-accent text-[10px] uppercase tracking-widest mb-1.5">Studio Reply</p>
-                      <p className="text-white/35 text-xs leading-relaxed">{r.artistReply}</p>
+
+                  {/* Tattoo idea — from appointment, shown if available */}
+                  {r.appointment?.tattooIdea && (
+                    <div className="flex items-center gap-2">
+                      <svg className="w-3 h-3 text-brand-accent/50 flex-shrink-0" fill="none"
+                        stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" />
+                      </svg>
+                      <span className="text-white/25 text-[11px] italic line-clamp-1">
+                        {r.appointment.tattooIdea}
+                      </span>
                     </div>
                   )}
+
+                  {/* Artist reply */}
+                  {r.artistReply && (
+                    <div className="border-l-2 border-brand-accent/30 pl-4">
+                      <p className="text-brand-accent text-[10px] uppercase tracking-widest mb-1">
+                        Studio Reply
+                      </p>
+                      <p className="text-white/30 text-xs leading-relaxed line-clamp-3">
+                        {r.artistReply}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Customer info */}
                   <div className="border-t border-white/8 pt-4 flex items-center gap-3">
                     {r.customer?.profileImage ? (
-                      <img src={r.customer.profileImage} alt=""
-                        className="w-8 h-8 rounded-full object-cover border border-white/10 flex-shrink-0" />
+                      <img
+                        src={r.customer.profileImage}
+                        alt=""
+                        className="w-8 h-8 rounded-full object-cover border border-white/10 flex-shrink-0"
+                      />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-brand-accent/10 border border-brand-accent/20
-                                      flex items-center justify-center flex-shrink-0">
-                        <span className="text-brand-accent text-[10px] font-medium">
-                          {r.customer?.firstName?.[0]}{r.customer?.lastName?.[0]}
+                      <div
+                        className="w-8 h-8 rounded-full bg-brand-accent/10 border border-brand-accent/20
+                                   flex items-center justify-center flex-shrink-0"
+                      >
+                        <span className="text-brand-accent text-[10px] font-semibold uppercase">
+                          {initials || '?'}
                         </span>
                       </div>
                     )}
-                    <p className="text-white/40 text-xs">
-                      {r.customer?.firstName} {r.customer?.lastName}
-                    </p>
+                    <div className="min-w-0">
+                      <p className="text-white/55 text-xs font-medium truncate">{displayName}</p>
+                      {isVerified && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <svg className="w-2.5 h-2.5 text-brand-accent flex-shrink-0"
+                            viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd"
+                              d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.883l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                              clipRule="evenodd" />
+                          </svg>
+                          <span className="text-brand-accent/70 text-[10px] tracking-wide">
+                            Verified Client
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── CTA ── */}
+        {!reviewsLoading && !reviewsError && (
+          <div className="mt-16 text-center border-t border-white/5 pt-16">
+            <p className="font-display text-2xl md:text-3xl mb-3">
+              Ready for your own piece?
+            </p>
+            <p className="text-white/35 text-sm mb-8 max-w-sm mx-auto leading-relaxed">
+              Let&apos;s turn your idea into something made specifically for you.
+            </p>
+            <Link to="/my-consultation" className="btn-primary px-10 py-4">
+              Start a Consultation
+            </Link>
+          </div>
+        )}
+      </section>
 
       {/* ── Not a member yet? — only shown to logged-out visitors ────────── */}
       {!isAuthenticated && (

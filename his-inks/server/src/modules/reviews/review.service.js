@@ -94,15 +94,52 @@ async function getPublicReviews({ page = 1, limit = 20 } = {}) {
   };
 }
 
-// ── Public: get featured reviews (top-rated, visible, with images) ────────────
+// ── Public: get featured reviews (top-rated, visible) ────────────────────────
+// Priority order:
+//   1. rating=5 reviews with images
+//   2. rating=5 reviews without images
+//   3. rating=4 reviews
+//   4. any visible review (highest rating first, newest first)
+// This ensures the section always shows real reviews as long as any exist.
 async function getFeaturedReviews({ limit = 6 } = {}) {
-  const reviews = await Review.find({ isVisible: true, rating: 5, images: { $ne: [] } })
+  // First attempt: rating 5 with images (ideal)
+  let reviews = await Review.find({ isVisible: true, rating: 5, images: { $ne: [] } })
     .sort({ createdAt: -1 })
     .limit(limit)
     .populate('customer', 'firstName lastName profileImage')
     .populate('appointment', 'preferredDate tattooIdea');
 
-  return reviews;
+  if (reviews.length >= limit) return reviews;
+
+  // Second attempt: any rating 5
+  if (reviews.length < limit) {
+    const existing = new Set(reviews.map((r) => r._id.toString()));
+    const extra = await Review.find({
+      isVisible: true,
+      rating: 5,
+      _id: { $nin: Array.from(existing) },
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit - reviews.length)
+      .populate('customer', 'firstName lastName profileImage')
+      .populate('appointment', 'preferredDate tattooIdea');
+    reviews = [...reviews, ...extra];
+  }
+
+  if (reviews.length >= limit) return reviews;
+
+  // Third attempt: fill remaining slots with highest-rated visible reviews
+  const existing = new Set(reviews.map((r) => r._id.toString()));
+  const fill = await Review.find({
+    isVisible: true,
+    _id: { $nin: Array.from(existing) },
+  })
+    .sort({ rating: -1, createdAt: -1 })
+    .limit(limit - reviews.length)
+    .populate('customer', 'firstName lastName profileImage')
+    .populate('appointment', 'preferredDate tattooIdea');
+
+  return [...reviews, ...fill];
 }
 
 // ── Customer: get their own reviews ───────────────────────────────────────────
